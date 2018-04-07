@@ -5,14 +5,16 @@ module State
 
 import           Data.Default (Default(def))
 
+import {-# SOURCE #-} Hawk
+
 data Bindings
   = Command
     { commandCount :: Maybe Int
     }
-    {-
-  | PassThrough
-    { bindingsReturn :: Bindings 
+  | PassThru
+    { bindingsReturn :: HawkM Bindings
     }
+    {-
   | Prompt 
     { promptPrompt :: !String
     , promptInput :: !Input

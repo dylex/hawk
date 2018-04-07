@@ -4,7 +4,6 @@ import qualified Data.GI.Base as G
 import qualified Data.Text as T
 import           System.Environment (getProgName, getArgs)
 
-import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
 
@@ -19,14 +18,18 @@ main = do
 
   Just (_prog:_args) <- Gtk.init $ Just $ map T.pack $ prog : args
 
+  ctx <- WK.webContextNewEphemeral
   settings <- G.new WK.Settings defaultSettings
 
-  hawk <- hawkOpen settings
+  hawk <- hawkOpen
+    [ #webContext G.:= ctx
+    , #settings G.:= settings
+    ]
 
   _ <- G.on (hawkWindow hawk) #keyPressEvent $ runHawkM hawk . runBind
   _ <- G.on (hawkWebView hawk) #loadChanged $ \ev -> do
     print ev
 
-  _ <- G.on (hawkWindow hawk) #destroy Gtk.mainQuit
+  _ <- G.after (hawkWindow hawk) #destroy Gtk.mainQuit
 
   Gtk.main

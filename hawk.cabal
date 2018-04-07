@@ -33,6 +33,7 @@ executable hawk
   main-is: Main.hs
   other-modules:
     Hawk
+    Bind
+    Prompt
     Settings
     State
-    Bind
