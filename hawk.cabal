@@ -1,0 +1,38 @@
+name:           hawk
+version:        0
+description:    HAskell WebKit browser
+homepage:       https://github.com/dylex/hawk
+author:         Dylan Simon
+maintainer:     dylan@dylex.net
+copyright:      2018
+license:        BSD3
+build-type:     Simple
+cabal-version:  >= 1.10
+
+source-repository head
+  type: git
+  location: https://github.com/dylex/hawk
+
+executable hawk
+  default-language: Haskell2010
+  ghc-options: -Wall
+  default-extensions: OverloadedLabels OverloadedStrings
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , data-default
+    , mtl
+    , process
+    , text
+    , time
+    , haskell-gi-base
+    , gi-gdk
+    , gi-gtk
+    , gi-pango
+    , gi-webkit2
+  main-is: Main.hs
+  other-modules:
+    Hawk
+    Settings
+    State
+    Bind
