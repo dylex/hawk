@@ -4,12 +4,13 @@ module State
   ) where
 
 import           Data.Default (Default(def))
+import           Data.Word (Word32)
 
 import {-# SOURCE #-} Hawk
 
 data Bindings
   = Command
-    { commandCount :: Maybe Int
+    { commandCount :: Maybe Word32
     }
   | PassThru
     { bindingsReturn :: HawkM Bindings

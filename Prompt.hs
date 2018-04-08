@@ -2,8 +2,7 @@ module Prompt
   ( prompt
   ) where
 
-import           Control.Monad.IO.Class (liftIO)
-import           Control.Monad.Reader (ask, asks)
+import           Control.Monad.Reader (ask)
 import qualified Data.GI.Base as G
 import qualified Data.Text as T
 
@@ -20,7 +19,7 @@ prompt f = do
     ]
   #packStart (hawkStatusBox hawk) ent True True 0
 
-  modifyState $ \state ->
+  modifyState_ $ \state ->
     state{ stateBindings = PassThru $ do
       #destroy ent
       return $ stateBindings state
@@ -31,7 +30,7 @@ prompt f = do
     case b of
       PassThru r -> do
         n <- r
-        modifyState $ \state -> state{ stateBindings = n }
+        modifyState_ $ \state -> state{ stateBindings = n }
         f t
       _ -> return ()
   #show ent

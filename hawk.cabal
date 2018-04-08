@@ -19,6 +19,7 @@ executable hawk
   default-extensions: OverloadedLabels OverloadedStrings
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , containers
     , data-default
     , mtl

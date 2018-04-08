@@ -8,7 +8,6 @@ import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
 
 import Bind
-import Settings
 import Hawk
 
 main :: IO ()
@@ -19,12 +18,8 @@ main = do
   Just (_prog:_args) <- Gtk.init $ Just $ map T.pack $ prog : args
 
   ctx <- WK.webContextNewEphemeral
-  settings <- G.new WK.Settings defaultSettings
 
-  hawk <- hawkOpen
-    [ #webContext G.:= ctx
-    , #settings G.:= settings
-    ]
+  hawk <- hawkOpen ctx
 
   _ <- G.on (hawkWindow hawk) #keyPressEvent $ runHawkM hawk . runBind
   _ <- G.on (hawkWebView hawk) #loadChanged $ \ev -> do
