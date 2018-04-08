@@ -14,10 +14,15 @@ module Hawk
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ReaderT, runReaderT, asks)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Builder as BSB
+import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
-import           Data.IORef (IORef, newIORef, readIORef, modifyIORef', atomicModifyIORef')
+import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
+import           Data.IORef (IORef, newIORef, readIORef, modifyIORef', atomicModifyIORef')
+import           Data.Monoid ((<>))
 import qualified Data.Text as T
+import qualified Data.Vector as V
 
 import qualified GI.Gtk as Gtk
 import qualified GI.Pango as Pango
@@ -27,12 +32,14 @@ import Settings
 import State
 
 data Hawk = Hawk
-  { hawkWindow :: !Gtk.Window
+  { hawkGlobal :: !Global
+  , hawkWindow :: !Gtk.Window
   , hawkWebView :: !WK.WebView
   , hawkSettings :: !WK.Settings
+  , hawkUserCM :: !WK.UserContentManager
   , hawkStatusBox :: !Gtk.Box
   , hawkStatusStyle :: !Gtk.CssProvider
-  , hawkStatusCount, hawkStatusLeft, hawkStatusRight :: !Gtk.Label
+  , hawkStatusCount, hawkStatusLeft :: !Gtk.Label
   , hawkState :: !(IORef State)
   }
 
@@ -63,8 +70,15 @@ setStyle obj rules = do
   #loadFromData css rules
   return css
 
-hawkOpen :: WK.WebContext -> IO Hawk
-hawkOpen ctx = do
+toHex :: Double -> BSB.Builder
+toHex x
+  | x <= 0 = "00"
+  | x >= 1 = "ff"
+  | otherwise = BSB.word8HexFixed $ floor (255*x)
+  where
+
+hawkOpen :: Global -> IO Hawk
+hawkOpen global = do
   win <- G.new Gtk.Window
     [ #type G.:= Gtk.WindowTypeToplevel
     ]
@@ -75,10 +89,12 @@ hawkOpen ctx = do
   #add win top
 
   settings <- G.new WK.Settings defaultSettings
-
+  usercm <- WK.userContentManagerNew
+  #addStyleSheet usercm $ V.head $ globalStyleSheets global
   wv <- G.new WK.WebView
-    [ #webContext G.:= ctx
+    [ #webContext G.:= globalWebContext global
     , #settings G.:= settings
+    , #userContentManager G.:= usercm
     ]
   #packStart top wv True True 0
 
@@ -100,34 +116,48 @@ hawkOpen ctx = do
   #setMarkup left "Loading..."
   #packStart status left False False 0
 
-  right <- G.new Gtk.Label
-    [ #halign G.:= Gtk.AlignEnd
-    , #selectable G.:= True
+  loc <- G.new Gtk.Label
+    [ #selectable G.:= True
     , #ellipsize G.:= Pango.EllipsizeModeEnd
     ]
-  #packEnd status right True False 0
+  #packEnd status loc True False 0
+
+  _ <- G.on wv (G.PropertyNotify #uri) $ \_ ->
+    Gtk.labelSetText loc . fold =<< G.get wv #uri
 
   load <- G.new Gtk.Label []
-  _ <- setStyle count "*{color:#fff;}"
-  -- loadcss <- setStyle count "*{}"
+  _ <- setStyle load "*{color:#fff;}"
+  loadcss <- setStyle load "*{}"
   #packEnd status load False False 0
 
-  _ <- G.on wv #loadChanged $ \ev -> do
-    #setText load $ T.pack $ show ev
+  _ <- G.on wv #loadChanged $ \ev ->
+    Gtk.labelSetText load $ case ev of
+      WK.LoadEventStarted -> "WAIT"
+      WK.LoadEventRedirected -> "REDIR"
+      WK.LoadEventCommitted -> "RECV"
+      WK.LoadEventFinished -> ""
+      (WK.AnotherLoadEvent x) -> T.pack $ show x
+
+  _ <- G.on wv (G.PropertyNotify #estimatedLoadProgress) $ \_ -> do
+    p <- G.get wv #estimatedLoadProgress
+    #loadFromData loadcss $ BSL.toStrict $ BSB.toLazyByteString $ "*{background-color:#" <> toHex (1-p) <> toHex p <> "00;}"
+
+  _ <- G.on wv #close $ #destroy win
 
   #showAll win
 
   state <- newIORef def
 
   return Hawk
-    { hawkWindow = win
+    { hawkGlobal = global
+    , hawkWindow = win
     , hawkWebView = wv
     , hawkSettings = settings
+    , hawkUserCM = usercm
     , hawkStatusBox = status
     , hawkStatusStyle = statuscss
     , hawkStatusCount = count
     , hawkStatusLeft = left
-    , hawkStatusRight = right
     , hawkState = state
     }
 

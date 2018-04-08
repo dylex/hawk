@@ -1,0 +1,17 @@
+@import "style.css";
+
+* {
+	color: #CCC;
+	background: #000;
+	text-shadow: none;
+	font-family: sans-serif;
+}
+a:link {
+	color: #FFF;
+}
+a:visited {
+	color: #999;
+}
+a:focus {
+	color: #9F9;
+}

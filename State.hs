@@ -1,12 +1,21 @@
 module State
-  ( Bindings(..)
+  ( Global(..)
+  , Bindings(..)
   , State(..)
   ) where
 
 import           Data.Default (Default(def))
+import qualified Data.Vector as V
 import           Data.Word (Word32)
 
+import qualified GI.WebKit2 as WK
+
 import {-# SOURCE #-} Hawk
+
+data Global = Global
+  { globalWebContext :: !WK.WebContext
+  , globalStyleSheets :: V.Vector WK.UserStyleSheet
+  }
 
 data Bindings
   = Command
@@ -32,10 +41,12 @@ instance Default Bindings where
   def = Command Nothing
 
 data State = State
-  { stateBindings :: Bindings
+  { stateBindings :: !Bindings
+  , stateStyleSheet :: !Int
   }
 
 instance Default State where
   def = State
     { stateBindings = def
+    , stateStyleSheet = 0
     }

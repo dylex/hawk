@@ -13,10 +13,10 @@ import           Control.Monad.Reader (ask, asks)
 import           Data.Default (def)
 import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
-import           Data.IORef (modifyIORef')
 import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import           Data.Word (Word32)
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 
@@ -89,6 +89,16 @@ zoom f = do
   stat <- asks hawkStatusLeft
   #setText stat $ T.pack $ "zoomLevel " ++ show x
 
+toggleStyleSheet :: HawkM ()
+toggleStyleSheet = do
+  css <- asks $ globalStyleSheets . hawkGlobal
+  i <- modifyState $ \state ->
+    let i = succ (stateStyleSheet state) `mod` V.length css in
+    (state{ stateStyleSheet = i }, i)
+  usercm <- asks hawkUserCM
+  #removeAllStyleSheets usercm
+  #addStyleSheet usercm $ css V.! i
+
 type BindMap = Map.Map ([Gdk.ModifierType], Word32) (HawkM ())
 
 charToKey :: Char -> Word32
@@ -102,6 +112,7 @@ commandBinds = Map.fromList $
   ] ++ map (first (second charToKey))
   [ (([], '@'), toggleOrCountSetting #enableCaretBrowsing)
   , (([], '%'), toggleOrCountSetting #enableJavascript)
+  , (([], '&'), toggleStyleSheet)
   , (([], '*'), toggleOrCountSetting #enableWebgl)
   , (([], '='), zoom (const 1))
   , (([Gdk.ModifierTypeMod1Mask], '='), toggleOrCountSetting #zoomTextOnly)

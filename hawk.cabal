@@ -8,6 +8,7 @@ copyright:      2018
 license:        BSD3
 build-type:     Simple
 cabal-version:  >= 1.10
+data-files:     style.css plain.css
 
 source-repository head
   type: git
@@ -26,6 +27,7 @@ executable hawk
     , process
     , text
     , time
+    , vector
     , haskell-gi-base
     , gi-gdk
     , gi-gtk
