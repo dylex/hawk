@@ -34,7 +34,6 @@ settingStatus attr = do
   x <- G.get sets attr
   stat <- asks hawkStatusLeft
   #setText stat $ T.pack $ symbolVal attr ++ " " ++ show x
-  return ()
 
 commandMode :: HawkM ()
 commandMode = do
@@ -82,6 +81,14 @@ toggleOrCountSetting attr = do
   G.set sets . return . maybe (attr G.:~ not) ((attr G.:=) . (0 /=)) =<< countMaybe
   settingStatus attr
 
+zoom :: (Double -> Double) -> HawkM ()
+zoom f = do
+  wv <- asks hawkWebView
+  G.set wv [#zoomLevel G.:~ f]
+  x <- G.get wv #zoomLevel
+  stat <- asks hawkStatusLeft
+  #setText stat $ T.pack $ "zoomLevel " ++ show x
+
 type BindMap = Map.Map ([Gdk.ModifierType], Word32) (HawkM ())
 
 charToKey :: Char -> Word32
@@ -93,12 +100,19 @@ commandBinds = Map.fromList $
   ] ++
   [ (([], i + charToKey '0'), digit i) | i <- [0..9]
   ] ++ map (first (second charToKey))
-  [ (([], '%'),      toggleOrCountSetting #enableJavascript)
-  , (([], 'Q'),      hawkClose)
-  , (([], 'g'),      hawkGoto "http://www.google.com/")
-  , (([], 'i'),      rawMode)
-  , (([], 'o'),      prompt hawkGoto)
-  , (([], 'p'),      paste hawkGoto)
+  [ (([], '@'), toggleOrCountSetting #enableCaretBrowsing)
+  , (([], '%'), toggleOrCountSetting #enableJavascript)
+  , (([], '*'), toggleOrCountSetting #enableWebgl)
+  , (([], '='), zoom (const 1))
+  , (([Gdk.ModifierTypeMod1Mask], '='), toggleOrCountSetting #zoomTextOnly)
+  , (([], '+'), zoom (0.1 +))
+  , (([], '_'), zoom (subtract 0.1))
+  , (([], 'Q'), hawkClose)
+  , (([], 'g'), hawkGoto "http://www.google.com/")
+  , (([], 'i'), rawMode)
+  , (([], 'o'), prompt hawkGoto)
+  , (([], 'p'), paste hawkGoto)
+  , (([], 'z'), #stopLoading =<< asks hawkWebView)
   ]
 
 bindings :: Bindings -> BindMap

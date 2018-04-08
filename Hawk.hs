@@ -107,6 +107,14 @@ hawkOpen ctx = do
     ]
   #packEnd status right True False 0
 
+  load <- G.new Gtk.Label []
+  _ <- setStyle count "*{color:#fff;}"
+  -- loadcss <- setStyle count "*{}"
+  #packEnd status load False False 0
+
+  _ <- G.on wv #loadChanged $ \ev -> do
+    #setText load $ T.pack $ show ev
+
   #showAll win
 
   state <- newIORef def

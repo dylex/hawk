@@ -22,8 +22,6 @@ main = do
   hawk <- hawkOpen ctx
 
   _ <- G.on (hawkWindow hawk) #keyPressEvent $ runHawkM hawk . runBind
-  _ <- G.on (hawkWebView hawk) #loadChanged $ \ev -> do
-    print ev
 
   _ <- G.after (hawkWindow hawk) #destroy Gtk.mainQuit
 
