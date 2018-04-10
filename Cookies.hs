@@ -6,15 +6,18 @@ module Cookies
   , loadCookiesTxt
   , saveCookiesTxt
   , addCookies
+  , saveCookies
   ) where
 
 import           Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
+import           Control.Exception (catch)
 import           Control.Monad ((<=<), guard, when)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Function (on)
+import qualified Data.GI.Base as G
 import           Data.Maybe (fromMaybe, isJust, mapMaybe)
 import           Data.Monoid ((<>))
 import qualified Data.Set as Set
@@ -114,6 +117,27 @@ newSoupCookie Cookie{..} = do
   when cookieHttpOnly $ Soup.cookieSetHttpOnly c cookieHttpOnly
   return c
 
+getSoupCookie :: Soup.Cookie -> IO Cookie
+getSoupCookie s = do
+  domain   <- Soup.cookieGetDomain s
+  path     <- Soup.cookieGetPath s
+  name     <- Soup.cookieGetName s
+  value    <- Soup.cookieGetValue s
+  secure   <- Soup.cookieGetSecure s
+  httponly <- Soup.cookieGetHttpOnly s
+  expires  <- (Soup.dateToTimeT =<< Soup.cookieGetExpires s)
+    `catch` \G.UnexpectedNullPointerReturn{} -> return 0
+  return Cookie
+    { cookieDomain = domain
+    , cookiePath = path
+    , cookieName = name
+    , cookieValue = value
+    , cookieSecure = secure
+    , cookieHttpOnly = httponly
+    , cookieExpires = fromIntegral expires
+    , cookieMaxAge = -1 -- unused
+    }
+
 addCookie :: WK.CookieManager -> Cookie -> IO ()
 addCookie cm c = do
   s <- newSoupCookie c
@@ -123,10 +147,19 @@ addCookie cm c = do
     putMVar v <=< WK.cookieManagerAddCookieFinish cm
   takeMVar v
 #else
-  WK.cookieManagerAddCookie cm s Gio.noCancellable Nothing
+  WK.cookieManagerAddCookie cm s Gio.noCancellable $ Just $ \_ cb -> do
+    WK.cookieManagerAddCookieFinish cm cb
+    print c
 #endif
 
 addCookies :: WK.WebContext -> Cookies -> IO ()
 addCookies ctx s = do
   cm <- #getCookieManager ctx
   mapM_ (addCookie cm) s
+
+saveCookies :: WK.WebContext -> T.Text -> IO ()
+saveCookies ctx uri = do
+  cm <- #getCookieManager ctx
+  #getCookies cm uri Gio.noCancellable $ Just $ \_ cb -> do
+    cl <- #getCookiesFinish cm cb
+    print =<< mapM getSoupCookie cl

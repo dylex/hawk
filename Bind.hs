@@ -8,6 +8,7 @@ module Bind
 
 import           Control.Arrow (first, second)
 import           Control.Monad (void, when)
+import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ask, asks)
 import           Data.Default (def)
 import qualified Data.GI.Base as G
@@ -25,6 +26,7 @@ import qualified GI.WebKit2 as WK
 
 import Types
 import Prompt
+import Cookies
 
 hawkClose :: HawkM ()
 hawkClose = do
@@ -108,7 +110,11 @@ toggleStyleSheet = do
   #addStyleSheet usercm $ css V.! i
 
 cookiesSave :: HawkM ()
-cookiesSave = return ()
+cookiesSave = do
+  wv <- asks hawkWebView
+  uri <- G.get wv #uri
+  ctx <- asks $ globalWebContext . hawkGlobal
+  liftIO $ mapM_ (saveCookies ctx) uri
 
 type BindMap = Map.Map ([Gdk.ModifierType], Word32) (HawkM ())
 
