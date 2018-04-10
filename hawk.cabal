@@ -17,26 +17,32 @@ source-repository head
 executable hawk
   default-language: Haskell2010
   ghc-options: -Wall
+  -- ghc-options: -threaded
   default-extensions: OverloadedLabels OverloadedStrings
   build-depends:
       base >=4.7 && <5
     , bytestring
     , containers
     , data-default
+    , directory
+    , filepath
     , mtl
     , process
     , text
     , time
     , vector
     , haskell-gi-base
+    , gi-gio
     , gi-gdk
     , gi-gtk
     , gi-pango
+    , gi-soup
     , gi-webkit2
   main-is: Main.hs
   other-modules:
     Hawk
     Bind
+    Cookies
     Prompt
     Settings
     State

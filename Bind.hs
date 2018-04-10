@@ -99,6 +99,9 @@ toggleStyleSheet = do
   #removeAllStyleSheets usercm
   #addStyleSheet usercm $ css V.! i
 
+cookiesSave :: HawkM ()
+cookiesSave = return ()
+
 type BindMap = Map.Map ([Gdk.ModifierType], Word32) (HawkM ())
 
 charToKey :: Char -> Word32
@@ -115,16 +118,19 @@ commandBinds = Map.fromList $
   , (([], '&'), toggleStyleSheet)
   , (([], '*'), toggleOrCountSetting #enableWebgl)
   , (([], '='), zoom (const 1))
-  , (([Gdk.ModifierTypeMod1Mask], '='), toggleOrCountSetting #zoomTextOnly)
+  , (([mod1], '='), toggleOrCountSetting #zoomTextOnly)
   , (([], '+'), zoom (0.1 +))
   , (([], '_'), zoom (subtract 0.1))
-  , (([], 'Q'), hawkClose)
-  , (([], 'g'), hawkGoto "http://www.google.com/")
-  , (([], 'i'), rawMode)
-  , (([], 'o'), prompt hawkGoto)
   , (([], 'p'), paste hawkGoto)
+  , (([], 'g'), hawkGoto "http://www.google.com/")
+  , (([ctrl, mod1], 'c'), cookiesSave)
+  , (([], 'o'), prompt hawkGoto)
+  , (([], 'i'), rawMode)
+  , (([], 'Q'), hawkClose)
   , (([], 'z'), #stopLoading =<< asks hawkWebView)
-  ]
+  ] where
+  mod1 = Gdk.ModifierTypeMod1Mask
+  ctrl = Gdk.ModifierTypeControlMask
 
 bindings :: Bindings -> BindMap
 bindings Command{} = commandBinds

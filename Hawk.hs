@@ -104,27 +104,19 @@ hawkOpen global = do
   statuscss <- setStyle status "*{}"
   #packStart top status False False 0
 
+  -- status left
   count <- G.new Gtk.Label []
   _ <- setStyle count "*{background-color:#8cc;color:#000;}"
   #packStart status count False False 0
 
   left <- G.new Gtk.Label
-    [ #halign G.:= Gtk.AlignStart
-    , #selectable G.:= True
+    [ #selectable G.:= True
     , #ellipsize G.:= Pango.EllipsizeModeEnd
     ]
   #setMarkup left "Loading..."
   #packStart status left False False 0
 
-  loc <- G.new Gtk.Label
-    [ #selectable G.:= True
-    , #ellipsize G.:= Pango.EllipsizeModeEnd
-    ]
-  #packEnd status loc True False 0
-
-  _ <- G.on wv (G.PropertyNotify #uri) $ \_ ->
-    Gtk.labelSetText loc . fold =<< G.get wv #uri
-
+  -- status right
   load <- G.new Gtk.Label []
   _ <- setStyle load "*{color:#fff;}"
   loadcss <- setStyle load "*{}"
@@ -142,11 +134,21 @@ hawkOpen global = do
     p <- G.get wv #estimatedLoadProgress
     #loadFromData loadcss $ BSL.toStrict $ BSB.toLazyByteString $ "*{background-color:#" <> toHex (1-p) <> toHex p <> "00;}"
 
+  loc <- G.new Gtk.Label
+    [ #halign G.:= Gtk.AlignEnd
+    , #selectable G.:= True
+    , #ellipsize G.:= Pango.EllipsizeModeEnd
+    ]
+  #packEnd status loc True True 0
+
+  _ <- G.on wv (G.PropertyNotify #uri) $ \_ ->
+    Gtk.labelSetText loc . fold =<< G.get wv #uri
+
   _ <- G.on wv #close $ #destroy win
 
-  #showAll win
-
   state <- newIORef def
+
+  #showAll win
 
   return Hawk
     { hawkGlobal = global
