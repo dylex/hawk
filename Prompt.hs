@@ -8,8 +8,7 @@ import qualified Data.Text as T
 
 import qualified GI.Gtk as Gtk
 
-import Hawk
-import State
+import Types
 
 prompt :: (T.Text -> HawkM ()) -> HawkM ()
 prompt f = do

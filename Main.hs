@@ -19,9 +19,8 @@ import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
 
 import Paths_hawk (getDataFileName)
-import Bind
-import State
-import Hawk
+import Types
+import Open
 import Cookies
 
 data Opts = Opts
@@ -68,7 +67,6 @@ main = do
         }
 
   hawk <- hawkOpen global
-  _ <- G.on (hawkWindow hawk) #keyPressEvent $ runHawkM hawk . runBind
 
   _ <- G.after (hawkWindow hawk) #destroy Gtk.mainQuit
 

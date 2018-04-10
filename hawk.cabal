@@ -40,9 +40,9 @@ executable hawk
     , gi-webkit2
   main-is: Main.hs
   other-modules:
-    Hawk
     Bind
     Cookies
+    Open
     Prompt
     Settings
-    State
+    Types

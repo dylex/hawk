@@ -8,7 +8,6 @@ module Bind
 
 import           Control.Arrow (first, second)
 import           Control.Monad (void, when)
-import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ask, asks)
 import           Data.Default (def)
 import qualified Data.GI.Base as G
@@ -24,9 +23,18 @@ import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
 
-import State
-import Hawk
+import Types
 import Prompt
+
+hawkClose :: HawkM ()
+hawkClose = do
+  win <- asks hawkWindow
+  #destroy win
+
+hawkGoto :: T.Text -> HawkM ()
+hawkGoto url = do
+  wv <- asks hawkWebView
+  #loadUri wv url
 
 settingStatus :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, Show a) => GA.AttrLabelProxy attr -> HawkM ()
 settingStatus attr = do

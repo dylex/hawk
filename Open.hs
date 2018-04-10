@@ -1,25 +1,15 @@
 {-# LANGUAGE DataKinds #-}
-module Hawk
-  ( Hawk(..)
-  , HawkM
-  , runHawkM
-  , asksState
-  , modifyState
-  , modifyState_
-  , hawkOpen
-  , hawkClose
-  , hawkGoto
+module Open
+  ( hawkOpen
   ) where
 
-import           Control.Monad.IO.Class (liftIO)
-import           Control.Monad.Reader (ReaderT, runReaderT, asks)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
 import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
-import           Data.IORef (IORef, newIORef, readIORef, modifyIORef', atomicModifyIORef')
+import           Data.IORef (newIORef)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -29,38 +19,8 @@ import qualified GI.Pango as Pango
 import qualified GI.WebKit2 as WK
 
 import Settings
-import State
-
-data Hawk = Hawk
-  { hawkGlobal :: !Global
-  , hawkWindow :: !Gtk.Window
-  , hawkWebView :: !WK.WebView
-  , hawkSettings :: !WK.Settings
-  , hawkUserCM :: !WK.UserContentManager
-  , hawkStatusBox :: !Gtk.Box
-  , hawkStatusStyle :: !Gtk.CssProvider
-  , hawkStatusCount, hawkStatusLeft :: !Gtk.Label
-  , hawkState :: !(IORef State)
-  }
-
-type HawkM = ReaderT Hawk IO
-
-runHawkM :: Hawk -> HawkM a -> IO a
-runHawkM = flip runReaderT
-
-asksState :: (State -> a) -> HawkM a
-asksState g =
-  fmap g . liftIO . readIORef =<< asks hawkState
-
-modifyState :: (State -> (State, a)) -> HawkM a
-modifyState f = do
-  statev <- asks hawkState
-  liftIO $ atomicModifyIORef' statev f
-
-modifyState_ :: (State -> State) -> HawkM ()
-modifyState_ f = do
-  statev <- asks hawkState
-  liftIO $ modifyIORef' statev f
+import Types
+import Bind
 
 setStyle :: Gtk.IsWidget w => w -> BS.ByteString -> IO Gtk.CssProvider
 setStyle obj rules = do
@@ -147,28 +107,21 @@ hawkOpen global = do
   _ <- G.on wv #close $ #destroy win
 
   state <- newIORef def
+  let hawk = Hawk
+        { hawkGlobal = global
+        , hawkWindow = win
+        , hawkWebView = wv
+        , hawkSettings = settings
+        , hawkUserCM = usercm
+        , hawkStatusBox = status
+        , hawkStatusStyle = statuscss
+        , hawkStatusCount = count
+        , hawkStatusLeft = left
+        , hawkState = state
+        }
+
+  _ <- G.on win #keyPressEvent $ runHawkM hawk . runBind
 
   #showAll win
 
-  return Hawk
-    { hawkGlobal = global
-    , hawkWindow = win
-    , hawkWebView = wv
-    , hawkSettings = settings
-    , hawkUserCM = usercm
-    , hawkStatusBox = status
-    , hawkStatusStyle = statuscss
-    , hawkStatusCount = count
-    , hawkStatusLeft = left
-    , hawkState = state
-    }
-
-hawkClose :: HawkM ()
-hawkClose = do
-  win <- asks hawkWindow
-  #destroy win
-
-hawkGoto :: T.Text -> HawkM ()
-hawkGoto url = do
-  wv <- asks hawkWebView
-  #loadUri wv url
+  return hawk
