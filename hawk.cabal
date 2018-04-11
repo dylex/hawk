@@ -27,6 +27,8 @@ executable hawk
     , directory
     , filepath
     , mtl
+    , network
+    , postgresql-typed
     , process
     , text
     , time
@@ -41,7 +43,9 @@ executable hawk
   main-is: Main.hs
   other-modules:
     Bind
+    Config
     Cookies
+    Database
     Open
     Prompt
     Settings

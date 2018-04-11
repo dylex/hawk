@@ -15,11 +15,13 @@ import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
 import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32)
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 
+import qualified GI.Gio as Gio
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
@@ -109,12 +111,30 @@ toggleStyleSheet = do
   #removeAllStyleSheets usercm
   #addStyleSheet usercm $ css V.! i
 
+toggleCookiePolicy :: HawkM ()
+toggleCookiePolicy = do
+  cm <- askCookieManager
+  stat <- asks hawkStatusLeft
+  let set p = do
+        #setAcceptPolicy cm p
+        #setText stat $ T.pack $ "cookieAcceptPolicy " ++ show p
+  maybe
+    (#getAcceptPolicy cm Gio.noCancellable $ Just $ \_ cb ->
+      set . next =<< #getAcceptPolicyFinish cm cb)
+    (liftIO . set . pol) =<< countMaybe
+  where
+  pol 0 = WK.CookieAcceptPolicyNever
+  pol 2 = WK.CookieAcceptPolicyAlways
+  pol _ = WK.CookieAcceptPolicyNoThirdParty
+  next WK.CookieAcceptPolicyNever = WK.CookieAcceptPolicyNoThirdParty
+  next _ = WK.CookieAcceptPolicyNever
+
 cookiesSave :: HawkM ()
 cookiesSave = do
   wv <- asks hawkWebView
   uri <- G.get wv #uri
-  ctx <- asks $ globalWebContext . hawkGlobal
-  liftIO $ mapM_ (saveCookies ctx) uri
+  prompt (fromMaybe T.empty uri) $
+    saveCookies
 
 type BindMap = Map.Map ([Gdk.ModifierType], Word32) (HawkM ())
 
@@ -137,8 +157,9 @@ commandBinds = Map.fromList $
   , (([], '_'), zoom (subtract 0.1))
   , (([], 'p'), paste hawkGoto)
   , (([], 'g'), hawkGoto "http://www.google.com/")
+  , (([mod1], 'c'), toggleCookiePolicy)
   , (([ctrl, mod1], 'c'), cookiesSave)
-  , (([], 'o'), prompt hawkGoto)
+  , (([], 'o'), prompt T.empty hawkGoto)
   , (([], 'i'), rawMode)
   , (([], 'Q'), hawkClose)
   , (([], 'z'), #stopLoading =<< asks hawkWebView)

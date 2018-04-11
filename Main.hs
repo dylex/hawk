@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Main (main) where
 
 import           Control.Monad (forM)
@@ -22,14 +24,17 @@ import Paths_hawk (getDataFileName)
 import Types
 import Open
 import Cookies
+import Database
 
 data Opts = Opts
   { optCookies :: Maybe FilePath
+  , optDatabase :: Maybe Database
   }
 
 instance Default Opts where
   def = Opts
     { optCookies = Just "cookies.txt"
+    , optDatabase = Just defaultDatabase
     }
 
 optDescrs :: [GetOpt.OptDescr (Opts -> Opts)]
@@ -37,13 +42,16 @@ optDescrs =
   [ GetOpt.Option "c" ["cookies"]
     (GetOpt.OptArg (\f o -> o{ optCookies = f }) "FILE")
     ("Load and use cookies from FILE [" ++ fromMaybe "NONE" (optCookies def) ++ "]")
+  , GetOpt.Option "n" ["no-database"]
+      (GetOpt.NoArg (\o -> o{ optDatabase = Nothing }))
+      "do not connect to a database"
   ]
 
 main :: IO ()
 main = do
   Just (prog:args) <- Gtk.init . Just . map T.pack =<< (:) <$> getProgName <*> getArgs
 
-  (opts, urls) <- case GetOpt.getOpt GetOpt.Permute optDescrs (map T.unpack args) of
+  (Opts{..}, urls) <- case GetOpt.getOpt GetOpt.Permute optDescrs (map T.unpack args) of
     (o, a, []) -> return (foldl' (flip ($)) def o, a)
     (_, _, err) -> do
       mapM_ (hPutStrLn stderr) err
@@ -51,11 +59,15 @@ main = do
       exitFailure
   dir <- getAppUserDataDirectory "hawk"
 
-  cookies <- maybe (return emptyCookies) (loadCookiesTxt . (dir </>)) $ optCookies opts
+  db <- mapM databaseOpen optDatabase
+
+  cookies <- maybe (return emptyCookies) (loadCookiesTxt . (dir </>)) optCookies
 
   ctx <- WK.webContextNewEphemeral
   #setProcessModel ctx WK.ProcessModelMultipleSecondaryProcesses
-  addCookies ctx cookies
+  cm <- #getCookieManager ctx
+  -- #setPersistentStorage cm "/tmp/hawk-cookies.txt" WK.CookiePersistentStorageText
+  addCookiesTo cm cookies
 
   css <- forM ["plain.css", "style.css"] $ \f -> do
     d <- T.IO.readFile =<< getDataFileName f
@@ -64,6 +76,7 @@ main = do
   let global = Global
         { globalWebContext = ctx
         , globalStyleSheets = V.fromList css
+        , globalDatabase = db
         }
 
   hawk <- hawkOpen global
@@ -71,3 +84,5 @@ main = do
   _ <- G.after (hawkWindow hawk) #destroy Gtk.mainQuit
 
   Gtk.main
+
+  mapM_ databaseClose db

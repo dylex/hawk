@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module Types
   ( Global(..)
   , Bindings(..)
@@ -16,6 +18,7 @@ import           Data.Default (Default(def))
 import           Data.IORef (IORef, readIORef, modifyIORef', atomicModifyIORef')
 import qualified Data.Vector as V
 import           Data.Word (Word32)
+import           Database.PostgreSQL.Typed (PGConnection)
 
 import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
@@ -23,6 +26,7 @@ import qualified GI.WebKit2 as WK
 data Global = Global
   { globalWebContext :: !WK.WebContext
   , globalStyleSheets :: V.Vector WK.UserStyleSheet
+  , globalDatabase :: Maybe PGConnection
   }
 
 data Bindings
@@ -86,6 +90,9 @@ modifyState f = do
   liftIO $ atomicModifyIORef' statev f
 
 modifyState_ :: (State -> State) -> HawkM ()
+modifyState_ = modifyState . ((, ()) .)
+{-
 modifyState_ f = do
   statev <- asks hawkState
   liftIO $ modifyIORef' statev f
+-}

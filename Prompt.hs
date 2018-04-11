@@ -10,12 +10,13 @@ import qualified GI.Gtk as Gtk
 
 import Types
 
-prompt :: (T.Text -> HawkM ()) -> HawkM ()
-prompt f = do
+prompt :: T.Text -> (T.Text -> HawkM ()) -> HawkM ()
+prompt i f = do
   hawk <- ask
   ent <- G.new Gtk.Entry
     [ #halign G.:= Gtk.AlignStart
     ]
+  #setText ent i
   #packStart (hawkStatusBox hawk) ent True True 0
 
   modifyState_ $ \state ->
