@@ -21,6 +21,7 @@ executable hawk
   default-extensions: OverloadedLabels OverloadedStrings
   build-depends:
       base >=4.7 && <5
+    , aeson
     , bytestring
     , containers
     , data-default
@@ -30,8 +31,10 @@ executable hawk
     , network
     , postgresql-typed
     , process
+    , scientific
     , text
     , time
+    , unordered-containers
     , vector
     , haskell-gi-base
     , gi-gio
