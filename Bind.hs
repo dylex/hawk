@@ -1,12 +1,13 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Bind
   ( runBind
   ) where
 
-import           Control.Arrow (first, second)
+import           Control.Arrow (first, second, (&&&))
 import           Control.Monad (void, when)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ask, asks)
@@ -42,7 +43,7 @@ hawkGoto url = do
 
 settingStatus :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, Show a) => GA.AttrLabelProxy attr -> HawkM ()
 settingStatus attr = do
-  sets <- asks hawkSettings
+  sets <- asksSettings
   x <- G.get sets attr
   stat <- asks hawkStatusLeft
   #setText stat $ T.pack $ symbolVal attr ++ " " ++ show x
@@ -52,18 +53,16 @@ commandMode = do
   _ <- countMaybe
   stat <- asks hawkStatusLeft
   #setText stat T.empty
-  modifyState_ $ \state ->
-    state{ stateBindings = def }
+  writeRef hawkBindings def
 
 rawMode :: HawkM ()
 rawMode = do
   css <- asks hawkStatusStyle
   #loadFromData css "*{background-color:#000;}"
-  modifyState_ $ \state ->
-    state{ stateBindings = PassThru $ do
+  modifyRef_ hawkBindings $ \bind ->
+    PassThru $ do
       #loadFromData css "*{}"
-      return $ stateBindings state
-    }
+      return bind
 
 paste :: (T.Text -> HawkM ()) -> HawkM ()
 paste f = do
@@ -73,10 +72,9 @@ paste f = do
 
 modifyCount :: (Maybe Word32 -> Maybe Word32) -> HawkM (Maybe Word32)
 modifyCount f = do
-  c <- modifyState $ \state ->
-    case stateBindings state of
-      b@Command{ commandCount = c } -> (state{ stateBindings = b{ commandCount = f c } }, c)
-      _ -> (state, Nothing)
+  c <- modifyRef hawkBindings $ \case
+    b@Command{ commandCount = c } -> (b{ commandCount = f c }, c)
+    b -> (b, Nothing)
   stat <- asks hawkStatusCount
   #setText stat $ maybe T.empty (T.pack . show) $ f c
   return c
@@ -89,7 +87,7 @@ countMaybe = modifyCount (const Nothing)
 
 toggleOrCountSetting :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr Bool, GA.AttrSetC info WK.Settings attr Bool) => GA.AttrLabelProxy attr -> HawkM ()
 toggleOrCountSetting attr = do
-  sets <- asks hawkSettings
+  sets <- asksSettings
   G.set sets . return . maybe (attr G.:~ not) ((attr G.:=) . (0 /=)) =<< countMaybe
   settingStatus attr
 
@@ -104,16 +102,15 @@ zoom f = do
 toggleStyleSheet :: HawkM ()
 toggleStyleSheet = do
   css <- asks $ globalStyleSheets . hawkGlobal
-  i <- modifyState $ \state ->
-    let i = succ (stateStyleSheet state) `mod` V.length css in
-    (state{ stateStyleSheet = i }, i)
-  usercm <- asks hawkUserCM
+  i <- modifyRef hawkStyleSheet $
+    id &&& id . (`mod` V.length css) . succ
+  usercm <- asksUserContentManager
   #removeAllStyleSheets usercm
   #addStyleSheet usercm $ css V.! i
 
 toggleCookiePolicy :: HawkM ()
 toggleCookiePolicy = do
-  cm <- askCookieManager
+  cm <- asksCookieManager
   stat <- asks hawkStatusLeft
   let set p = do
         #setAcceptPolicy cm p
@@ -169,13 +166,12 @@ commandBinds = Map.fromList $
 
 bindings :: Bindings -> BindMap
 bindings Command{} = commandBinds
-bindings (PassThru r) = Map.singleton ([], Gdk.KEY_Escape) $ do
-  n <- r
-  modifyState_ $ \state -> state{ stateBindings = n }
+bindings (PassThru r) = Map.singleton ([], Gdk.KEY_Escape) $
+  writeRef hawkBindings =<< r
 
 runBind :: Gdk.EventKey -> HawkM Bool
 runBind ev = do
-  bind <- asksState $ bindings . stateBindings
+  bind <- bindings <$> readRef hawkBindings
   evt <- G.get ev #type
   ks <- G.get ev #state
   kv <- G.get ev #keyval

@@ -1,0 +1,12 @@
+settings:
+  enable-caret-browsing: True
+  enable-developer-extras: True
+  enable-fullscreen: False
+  enable-html5-database: False
+  enable-html5Local-storage: False
+  enable-java: False
+  enable-offline-web-application-cache: False
+  enable-plugins: False
+  hardware-acceleration-policy: 2 # never
+  media-playback-requires-user-gesture: True
+  zoom-text-only: True

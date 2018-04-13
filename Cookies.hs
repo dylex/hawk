@@ -5,7 +5,6 @@ module Cookies
   ( emptyCookies
   , loadCookiesTxt
   , saveCookiesTxt
-  , askCookieManager
   , addCookiesTo
   , addCookies
   , saveCookies
@@ -16,7 +15,6 @@ import           Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 #endif
 import           Control.Monad ((<=<), guard, when)
 import           Control.Monad.IO.Class (liftIO)
-import           Control.Monad.Reader (asks)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Char8 as BSC
@@ -161,20 +159,17 @@ addCookie cm c = do
     -}
 #endif
 
-askCookieManager :: HawkM WK.CookieManager
-askCookieManager = #getCookieManager =<< asks (globalWebContext . hawkGlobal)
-
 addCookiesTo :: WK.CookieManager -> Cookies -> IO ()
 addCookiesTo = mapM_ . addCookie
 
 addCookies :: Cookies -> HawkM ()
 addCookies s = do
-  cm <- askCookieManager
+  cm <- asksCookieManager
   liftIO $ addCookiesTo cm s
 
 saveCookies :: T.Text -> HawkM ()
 saveCookies uri = do
-  cm <- askCookieManager
+  cm <- asksCookieManager
   #getCookies cm uri Gio.noCancellable $ Just $ \_ cb -> do
     cl <- #getCookiesFinish cm cb
     print =<< mapM getSoupCookie cl

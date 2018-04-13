@@ -1,21 +1,25 @@
 {-# LANGUAGE TupleSections #-}
 
 module Types
-  ( Global(..)
-  , Bindings(..)
-  , State(..)
+  ( Bindings(..)
   , Hawk(..)
   , HawkM
   , runHawkM
-  , asksState
-  , modifyState
-  , modifyState_
+  , asksSettings
+  , asksWebContext
+  , asksUserContentManager
+  , asksWebsiteDataManager 
+  , asksCookieManager
+  , readRef
+  , writeRef
+  , modifyRef
+  , modifyRef_
   ) where
 
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ReaderT, runReaderT, asks)
 import           Data.Default (Default(def))
-import           Data.IORef (IORef, readIORef, modifyIORef', atomicModifyIORef')
+import           Data.IORef (IORef, readIORef, writeIORef, atomicModifyIORef')
 import qualified Data.Vector as V
 import           Data.Word (Word32)
 import           Database.PostgreSQL.Typed (PGConnection)
@@ -23,11 +27,7 @@ import           Database.PostgreSQL.Typed (PGConnection)
 import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
 
-data Global = Global
-  { globalWebContext :: !WK.WebContext
-  , globalStyleSheets :: V.Vector WK.UserStyleSheet
-  , globalDatabase :: Maybe PGConnection
-  }
+import Config
 
 data Bindings
   = Command
@@ -52,27 +52,18 @@ data Bindings
 instance Default Bindings where
   def = Command Nothing
 
-data State = State
-  { stateBindings :: !Bindings
-  , stateStyleSheet :: !Int
-  }
-
-instance Default State where
-  def = State
-    { stateBindings = def
-    , stateStyleSheet = 0
-    }
-
 data Hawk = Hawk
-  { hawkGlobal :: !Global
+  { hawkConfig :: !Config
+  , hawkDatabase :: !(Maybe PGConnection)
   , hawkWindow :: !Gtk.Window
-  , hawkWebView :: !WK.WebView
-  , hawkSettings :: !WK.Settings
-  , hawkUserCM :: !WK.UserContentManager
   , hawkStatusBox :: !Gtk.Box
   , hawkStatusStyle :: !Gtk.CssProvider
   , hawkStatusCount, hawkStatusLeft :: !Gtk.Label
-  , hawkState :: !(IORef State)
+  , hawkWebView :: !WK.WebView
+
+  , hawkBindings :: !(IORef Bindings)
+  , hawkStyleSheet :: !(IORef Int)
+  , hawkPrivateMode :: !(IORef Bool)
   }
 
 type HawkM = ReaderT Hawk IO
@@ -80,19 +71,34 @@ type HawkM = ReaderT Hawk IO
 runHawkM :: Hawk -> HawkM a -> IO a
 runHawkM = flip runReaderT
 
-asksState :: (State -> a) -> HawkM a
-asksState g =
-  fmap g . liftIO . readIORef =<< asks hawkState
+asksSettings :: HawkM WK.Settings
+asksSettings = #getSettings =<< asks hawkWebView
 
-modifyState :: (State -> (State, a)) -> HawkM a
-modifyState f = do
-  statev <- asks hawkState
-  liftIO $ atomicModifyIORef' statev f
+asksWebContext :: HawkM WK.WebContext
+asksWebContext = #getContext =<< asks hawkWebView
 
-modifyState_ :: (State -> State) -> HawkM ()
-modifyState_ = modifyState . ((, ()) .)
-{-
-modifyState_ f = do
-  statev <- asks hawkState
-  liftIO $ modifyIORef' statev f
--}
+asksUserContentManager :: HawkM WK.UserContentManager
+asksUserContentManager = #getUserContentManager =<< asks hawkWebView
+
+asksWebsiteDataManager :: HawkM WK.WebsiteDataManager
+asksWebsiteDataManager = #getWebsiteDataManager =<< asks hawkWebView
+
+asksCookieManager :: HawkM WK.CookieManager
+asksCookieManager = #getCookieManager =<< asksWebsiteDataManager
+
+readRef :: (Hawk -> IORef a) -> HawkM a
+readRef f =
+  liftIO . readIORef =<< asks f
+
+writeRef :: (Hawk -> IORef a) -> a -> HawkM ()
+writeRef f x = do
+  v <- asks f
+  liftIO $ writeIORef v x
+
+modifyRef :: (Hawk -> IORef a) -> (a -> (a, b)) -> HawkM b
+modifyRef f m = do
+  v <- asks f
+  liftIO $ atomicModifyIORef' v m
+
+modifyRef_ :: (Hawk -> IORef a) -> (a -> a) -> HawkM ()
+modifyRef_ f = modifyRef f . ((, ()) .)

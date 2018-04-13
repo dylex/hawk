@@ -19,18 +19,16 @@ prompt i f = do
   #setText ent i
   #packStart (hawkStatusBox hawk) ent True True 0
 
-  modifyState_ $ \state ->
-    state{ stateBindings = PassThru $ do
+  modifyRef_ hawkBindings $ \bind ->
+    PassThru $ do
       #destroy ent
-      return $ stateBindings state
-    }
+      return bind
   _ <- G.on ent #activate $ runHawkM hawk $ do
     t <- #getText ent
-    b <- asksState stateBindings
+    b <- readRef hawkBindings
     case b of
       PassThru r -> do
-        n <- r
-        modifyState_ $ \state -> state{ stateBindings = n }
+        writeRef hawkBindings =<< r
         f t
       _ -> return ()
   #show ent

@@ -3,18 +3,18 @@
 
 module Database
   ( Database
-  , defaultDatabase
   , databaseOpen
   , databaseClose
   ) where
 
+import           Data.Default (def)
 import qualified Database.PostgreSQL.Typed as PG
 
 import Config
 
 type Database = PG.PGDatabase
 
-PG.useTPGDatabase defaultDatabase
+PG.useTPGDatabase def
 
 databaseOpen :: PG.PGDatabase -> IO PG.PGConnection
 databaseOpen = PG.pgConnect

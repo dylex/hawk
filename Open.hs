@@ -37,20 +37,53 @@ toHex x
   | otherwise = BSB.word8HexFixed $ floor (255*x)
   where
 
-hawkOpen :: Global -> IO Hawk
-hawkOpen global = do
-  win <- G.new Gtk.Window
+hawkOpen :: Config -> IO Hawk
+hawkOpen Config{..} = do
+  hawkDatabase <- mapM databaseOpen configDatabase
+
+  hawkWindow <- G.new Gtk.Window
     [ #type G.:= Gtk.WindowTypeToplevel
     ]
 
-  top <- G.new Gtk.Box
+  hawkTopBox <- G.new Gtk.Box
     [ #orientation G.:= Gtk.OrientationVertical
     ]
-  #add win top
+  #add hawkWindow hawkTopBox
 
-  settings <- G.new WK.Settings defaultSettings
-  usercm <- WK.userContentManagerNew
-  #addStyleSheet usercm $ V.head $ globalStyleSheets global
+  hawkSettings <- WK.settingsNew
+  unless (V.empty configUserAgents) $
+    G.set hawkSettings [#userAgent G.:= V.head configUserAgents]
+  forM_ (HM.toList configSettings) $ \(k, v) ->
+    setObjectProperty hawkSettings k v
+
+  hawkStyleSheets <- forM configStyleSheet $ \f -> do
+    d <- T.IO.readFile =<< getDataFileName f
+    WK.userStyleSheetNew d WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
+
+  hawkScripts <- forM configScript $ \f -> do
+    d <- T.IO.readFile =<< getDataFileName f
+    WK.userScriptNew d WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectAtDocumentStart Nothing Nothing
+
+  hawkUserContentManager <- WK.userContentManagerNew
+  unless (V.empty hawkStyleSheets) $
+    #addStyleSheet hawkUserContentManager $ V.unsafeHead hawkStyleSheets
+  unless (V.empty hawkScripts) $
+    #addScript hawkUserContentManager $ V.unsafeHead hawkScripts
+
+  hawkWebsiteDataManager <- maybe
+    WK.websiteDataManagerNewEphemeral
+    (\d -> G.new WK.WebsiteDataManager
+      [ #baseDataDirectory G.:= d ])
+    configDataDirectory
+  hawkCookieManager <- #getCookieManager hawkWebsiteDataManager
+  forM_ configCookieFile $ \f ->
+    #setPersistantStorage hawkCookieManager f (case takeExtension f of
+      ".txt" -> WK.CookiePersistentStorageText
+      ".text" -> WK.CookiePersistentStorageText
+      "" -> WK.CookiePersistentStorageText
+      _ -> WK.CookiePersistentStorageSqlite)
+  #setAcceptPolicy hawkCookieManager configCookieAcceptPolicy
+
   wv <- G.new WK.WebView
     [ #webContext G.:= globalWebContext global
     , #settings G.:= settings
@@ -107,18 +140,7 @@ hawkOpen global = do
   _ <- G.on wv #close $ #destroy win
 
   state <- newIORef def
-  let hawk = Hawk
-        { hawkGlobal = global
-        , hawkWindow = win
-        , hawkWebView = wv
-        , hawkSettings = settings
-        , hawkUserCM = usercm
-        , hawkStatusBox = status
-        , hawkStatusStyle = statuscss
-        , hawkStatusCount = count
-        , hawkStatusLeft = left
-        , hawkState = state
-        }
+  let hawk = Hawk{..}
 
   _ <- G.on win #keyPressEvent $ runHawkM hawk . runBind
 
