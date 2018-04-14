@@ -1,25 +1,33 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module Open
   ( hawkOpen
   ) where
 
+import           Control.Monad (unless, forM, forM_)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
 import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
+import qualified Data.HashMap.Strict as HM
 import           Data.IORef (newIORef)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import qualified Data.Vector as V
+import           System.FilePath (takeExtension)
 
 import qualified GI.Gtk as Gtk
 import qualified GI.Pango as Pango
 import qualified GI.WebKit2 as WK
 
-import Settings
+import Paths_hawk (getDataFileName)
 import Types
+import Config
+import Database
 import Bind
 
 setStyle :: Gtk.IsWidget w => w -> BS.ByteString -> IO Gtk.CssProvider
@@ -38,7 +46,7 @@ toHex x
   where
 
 hawkOpen :: Config -> IO Hawk
-hawkOpen Config{..} = do
+hawkOpen hawkConfig@Config{..} = do
   hawkDatabase <- mapM databaseOpen configDatabase
 
   hawkWindow <- G.new Gtk.Window
@@ -46,104 +54,118 @@ hawkOpen Config{..} = do
     ]
 
   hawkTopBox <- G.new Gtk.Box
-    [ #orientation G.:= Gtk.OrientationVertical
-    ]
+    [ #orientation G.:= Gtk.OrientationVertical ]
   #add hawkWindow hawkTopBox
 
+  hawkStatusBox <- G.new Gtk.Box
+    [ #orientation G.:= Gtk.OrientationHorizontal ]
+  hawkStatusStyle <- setStyle hawkStatusBox "*{}"
+  #packEnd hawkTopBox hawkStatusBox False False 0
+
+  -- status left
+  hawkStatusCount <- G.new Gtk.Label []
+  _ <- setStyle hawkStatusCount "*{background-color:#8cc;color:#000;}"
+  #packStart hawkStatusBox hawkStatusCount False False 0
+
+  hawkStatusLeft <- G.new Gtk.Label
+    [ #selectable G.:= True
+    , #ellipsize G.:= Pango.EllipsizeModeEnd
+    ]
+  #setMarkup hawkStatusLeft "Loading..."
+  #packStart hawkStatusBox hawkStatusLeft False False 0
+
+  -- status right
+  hawkStatusLoad <- G.new Gtk.Label []
+  _ <- setStyle hawkStatusLoad "*{color:#fff;}"
+  hawkStatusLoadStyle <- setStyle hawkStatusLoad "*{}"
+  #packEnd hawkStatusBox hawkStatusLoad False False 0
+
+  hawkStatusURI <- G.new Gtk.Label
+    [ #halign G.:= Gtk.AlignEnd
+    , #selectable G.:= True
+    , #ellipsize G.:= Pango.EllipsizeModeEnd
+    ]
+  #packEnd hawkStatusBox hawkStatusURI True True 0
+
+
   hawkSettings <- WK.settingsNew
-  unless (V.empty configUserAgents) $
-    G.set hawkSettings [#userAgent G.:= V.head configUserAgents]
+  unless (V.null configUserAgent) $
+    G.set hawkSettings [#userAgent G.:= V.unsafeHead configUserAgent]
   forM_ (HM.toList configSettings) $ \(k, v) ->
     setObjectProperty hawkSettings k v
 
   hawkStyleSheets <- forM configStyleSheet $ \f -> do
-    d <- T.IO.readFile =<< getDataFileName f
+    d <- TIO.readFile =<< getDataFileName f
     WK.userStyleSheetNew d WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
 
   hawkScripts <- forM configScript $ \f -> do
-    d <- T.IO.readFile =<< getDataFileName f
-    WK.userScriptNew d WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectAtDocumentStart Nothing Nothing
+    d <- TIO.readFile =<< getDataFileName f
+    WK.userScriptNew d WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
 
   hawkUserContentManager <- WK.userContentManagerNew
-  unless (V.empty hawkStyleSheets) $
+  unless (V.null hawkStyleSheets) $
     #addStyleSheet hawkUserContentManager $ V.unsafeHead hawkStyleSheets
-  unless (V.empty hawkScripts) $
+  unless (V.null hawkScripts) $
     #addScript hawkUserContentManager $ V.unsafeHead hawkScripts
 
   hawkWebsiteDataManager <- maybe
     WK.websiteDataManagerNewEphemeral
     (\d -> G.new WK.WebsiteDataManager
-      [ #baseDataDirectory G.:= d ])
+      [ #baseDataDirectory G.:= T.pack d ])
     configDataDirectory
   hawkCookieManager <- #getCookieManager hawkWebsiteDataManager
   forM_ configCookieFile $ \f ->
-    #setPersistantStorage hawkCookieManager f (case takeExtension f of
+    #setPersistentStorage hawkCookieManager (T.pack f) (case takeExtension f of
       ".txt" -> WK.CookiePersistentStorageText
       ".text" -> WK.CookiePersistentStorageText
       "" -> WK.CookiePersistentStorageText
       _ -> WK.CookiePersistentStorageSqlite)
   #setAcceptPolicy hawkCookieManager configCookieAcceptPolicy
 
-  wv <- G.new WK.WebView
-    [ #webContext G.:= globalWebContext global
-    , #settings G.:= settings
-    , #userContentManager G.:= usercm
+  hawkWebContext <- WK.webContextNewWithWebsiteDataManager hawkWebsiteDataManager
+  #setCacheModel hawkWebContext configCacheModel
+  #setWebProcessCountLimit hawkWebContext configProcessCountLimit
+  {- haskell-gi #154
+  forM_ configProxy $ \p ->
+    #setNetworkProxySettings hawkWebContext WK.NetworkProxyModeCustom . Just
+      =<< WK.networkProxySettingsNew (Just p) configProxyIgnore
+  -}
+  #setSpellCheckingEnabled hawkWebContext configSpellChecking
+  #setProcessModel hawkWebContext configProcessModel
+
+  hawkWebView <- G.new WK.WebView
+    [ #webContext G.:= hawkWebContext
+    , #editable G.:= configEditable
+    , #userContentManager G.:= hawkUserContentManager
+    , #zoomLevel G.:= configZoomLevel
     ]
-  #packStart top wv True True 0
+  #packStart hawkTopBox hawkWebView True True 0
 
-  status <- G.new Gtk.Box
-    [ #orientation G.:= Gtk.OrientationHorizontal
-    ]
-  statuscss <- setStyle status "*{}"
-  #packStart top status False False 0
 
-  -- status left
-  count <- G.new Gtk.Label []
-  _ <- setStyle count "*{background-color:#8cc;color:#000;}"
-  #packStart status count False False 0
-
-  left <- G.new Gtk.Label
-    [ #selectable G.:= True
-    , #ellipsize G.:= Pango.EllipsizeModeEnd
-    ]
-  #setMarkup left "Loading..."
-  #packStart status left False False 0
-
-  -- status right
-  load <- G.new Gtk.Label []
-  _ <- setStyle load "*{color:#fff;}"
-  loadcss <- setStyle load "*{}"
-  #packEnd status load False False 0
-
-  _ <- G.on wv #loadChanged $ \ev ->
-    Gtk.labelSetText load $ case ev of
+  _ <- G.on hawkWebView #loadChanged $ \ev ->
+    Gtk.labelSetText hawkStatusLoad $ case ev of
       WK.LoadEventStarted -> "WAIT"
       WK.LoadEventRedirected -> "REDIR"
       WK.LoadEventCommitted -> "RECV"
       WK.LoadEventFinished -> ""
       (WK.AnotherLoadEvent x) -> T.pack $ show x
 
-  _ <- G.on wv (G.PropertyNotify #estimatedLoadProgress) $ \_ -> do
-    p <- G.get wv #estimatedLoadProgress
-    #loadFromData loadcss $ BSL.toStrict $ BSB.toLazyByteString $ "*{background-color:#" <> toHex (1-p) <> toHex p <> "00;}"
+  _ <- G.on hawkWebView (G.PropertyNotify #estimatedLoadProgress) $ \_ -> do
+    p <- G.get hawkWebView #estimatedLoadProgress
+    #loadFromData hawkStatusLoadStyle $ BSL.toStrict $ BSB.toLazyByteString $ "*{background-color:#" <> toHex (1-p) <> toHex p <> "00;}"
 
-  loc <- G.new Gtk.Label
-    [ #halign G.:= Gtk.AlignEnd
-    , #selectable G.:= True
-    , #ellipsize G.:= Pango.EllipsizeModeEnd
-    ]
-  #packEnd status loc True True 0
+  _ <- G.on hawkWebView (G.PropertyNotify #uri) $ \_ ->
+    Gtk.labelSetText hawkStatusURI . fold =<< G.get hawkWebView #uri
 
-  _ <- G.on wv (G.PropertyNotify #uri) $ \_ ->
-    Gtk.labelSetText loc . fold =<< G.get wv #uri
+  hawkBindings <- newIORef def
+  hawkStyleSheet <- newIORef 0
+  hawkPrivateMode <- newIORef configPrivateMode
 
-  _ <- G.on wv #close $ #destroy win
-
-  state <- newIORef def
   let hawk = Hawk{..}
+  _ <- G.on hawkWebView #close $ #destroy hawkWindow
+  _ <- G.on hawkWindow #keyPressEvent $ runHawkM hawk . runBind
 
-  _ <- G.on win #keyPressEvent $ runHawkM hawk . runBind
+  #showAll hawkWindow
 
-  #showAll win
-
+  mapM_ (#loadUri hawkWebView) configURI
   return hawk

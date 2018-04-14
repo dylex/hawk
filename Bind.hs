@@ -101,7 +101,7 @@ zoom f = do
 
 toggleStyleSheet :: HawkM ()
 toggleStyleSheet = do
-  css <- asks $ globalStyleSheets . hawkGlobal
+  css <- asks hawkStyleSheets
   i <- modifyRef hawkStyleSheet $
     id &&& id . (`mod` V.length css) . succ
   usercm <- asksUserContentManager

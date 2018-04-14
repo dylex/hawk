@@ -27,6 +27,7 @@ executable hawk
     , data-default
     , directory
     , filepath
+    , lens
     , mtl
     , network
     , postgresql-typed
@@ -36,6 +37,7 @@ executable hawk
     , time
     , unordered-containers
     , vector
+    , yaml
     , haskell-gi-base
     , gi-gio
     , gi-gdk
@@ -49,6 +51,7 @@ executable hawk
     Config
     Cookies
     Database
+    JSON
     Open
     Prompt
     Settings

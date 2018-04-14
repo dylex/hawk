@@ -10,7 +10,7 @@ module Database
 import           Data.Default (def)
 import qualified Database.PostgreSQL.Typed as PG
 
-import Config
+import Config ()
 
 type Database = PG.PGDatabase
 

@@ -62,6 +62,7 @@ data Hawk = Hawk
   , hawkWebView :: !WK.WebView
 
   , hawkBindings :: !(IORef Bindings)
+  , hawkStyleSheets :: !(V.Vector WK.UserStyleSheet)
   , hawkStyleSheet :: !(IORef Int)
   , hawkPrivateMode :: !(IORef Bool)
   }

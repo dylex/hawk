@@ -1,4 +1,6 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Config
@@ -6,12 +8,15 @@ module Config
   , makeGValue
   , setObjectProperty
   , Config(..)
+  , parseConfigFile
   ) where
 
-import           Control.Applicative ((<|>))
+import           Control.Arrow (left)
+import qualified Control.Lens as Lens
+import           Control.Monad (MonadPlus, mzero)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Encoding as J (null_)
-import qualified Data.Aeson.Types as J (typeMismatch, parseEither, emptyObject)
+import qualified Data.Aeson.Types as J (Parser, typeMismatch, parseEither)
 import qualified Data.ByteString.Char8 as BSC
 import           Data.Default (Default(def))
 import qualified Data.GI.Base as G
@@ -20,19 +25,21 @@ import qualified Data.GI.Base.Properties as GProp
 import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe, isJust)
-import           Data.Monoid (Monoid(..))
 import           Data.Scientific (floatingOrInteger)
-import           Data.Semigroup (Semigroup(..))
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import           Data.Word (Word32, Word16)
+import qualified Data.Yaml as Y
 import           Database.PostgreSQL.Typed (PGDatabase(..), defaultPGDatabase)
 import           Foreign.Ptr (nullPtr)
 import           Network (PortID(..))
 import           System.Environment (getEnv)
-import           System.FilePath ((</>))
+import           System.FilePath ((</>), dropExtension, takeExtension)
 import qualified System.IO.Unsafe as Unsafe
 
 import qualified GI.WebKit2 as WK
+
+import JSON
 
 data GValue
   = GValueNull
@@ -74,18 +81,18 @@ setObjectProperty o p (GValueInt x)     = GProp.setObjectPropertyInt64  o p x
 setObjectProperty o p (GValueDouble x)  = GProp.setObjectPropertyDouble o p x
 setObjectProperty o p (GValueBool x)    = GProp.setObjectPropertyBool   o p x
 
-type GObjectConfig = HM.HashMap T.Text GValue
+type GObjectConfig = HM.HashMap String GValue
 
 data Config = Config
   { configDatabase :: !(Maybe PGDatabase)
-  , configUserAgents :: !(V.Vector T.Text)
+  , configUserAgent :: !(V.Vector T.Text)
 
   -- WebSettings
   , configSettings :: !GObjectConfig
 
   -- UserContentManager
-  , configStyleSheet :: ![FilePath]
-  , configScript :: ![FilePath]
+  , configStyleSheet :: !(V.Vector FilePath)
+  , configScript :: !(V.Vector FilePath)
 
   -- WebsiteDataManager
   , configDataDirectory :: !(Maybe FilePath)
@@ -110,33 +117,30 @@ data Config = Config
   , configPrivateMode :: !Bool
   }
 
-defaultParse :: J.FromJSON a => a
-defaultParse = either error id $ J.parseEither J.parseJSON J.emptyObject
+Lens.makeLensesWith (Lens.lensField Lens..~ Lens.mappingNamer (return . (++ "'")) $ Lens.lensRules) ''Config
 
 instance Default Config where
-  def = defaultParse
-
-instance Semigroup Config where
-  a <> b = b
-    { configSettings = HM.union (configSettings b) (configSettings a)
-    , configStyleSheet = configStyleSheet a ++ configStyleSheet b
-    , configScript = configScript a ++ configScript b
-    , configDataDirectory = configDataDirectory b <|> configDataDirectory a
-    , configCookieFile = configCookieFile b <|> configCookieFile a
-    , configProxy = configProxy b <|> configProxy a
-    , configProxyIgnore = configProxyIgnore a ++ configProxyIgnore b
+  def = Config
+    { configDatabase = Just def
+    , configUserAgent = V.empty
+    , configSettings = HM.empty
+    , configStyleSheet = V.empty
+    , configScript = V.empty
+    , configDataDirectory = Nothing
+    , configCookieFile = Nothing
+    , configCookieAcceptPolicy = WK.CookieAcceptPolicyNever
+    , configCacheModel = WK.CacheModelWebBrowser
+    , configProcessCountLimit = 0
+    , configProxy = Nothing
+    , configProxyIgnore = []
+    , configSpellChecking = True
+    , configProcessModel = WK.ProcessModelSharedSecondaryProcess
+    , configCharset = Nothing
+    , configEditable = False
+    , configZoomLevel = 1
+    , configURI = Nothing
+    , configPrivateMode = False
     }
-
-instance Monoid Config where
-  mempty = def
-  mappend = (<>)
-
-newtype ListOr a = ListOr{ orList :: [a] }
-
-instance J.FromJSON a => J.FromJSON (ListOr a) where
-  parseJSON J.Null = return $ ListOr []
-  parseJSON x@(J.Array _) = ListOr <$> J.parseJSON x
-  parseJSON x = ListOr . return <$> J.parseJSON x
 
 instance J.FromJSON PGDatabase where
   parseJSON = J.withObject "database" $ \d -> do
@@ -203,28 +207,51 @@ instance J.FromJSON WK.ProcessModel where
   parseJSON (J.String "multiple") = return WK.ProcessModelMultipleSecondaryProcesses
   parseJSON x = J.typeMismatch "ProcessModel (shared,multiple)" x
 
+newtype Some m a = Some{ getSome :: m a }
+
+instance (MonadPlus m, J.FromJSON1 m, J.FromJSON a) => J.FromJSON (Some m a) where
+  parseJSON J.Null = return $ Some mzero
+  parseJSON x@(J.Array _) = Some <$> J.parseJSON1 x
+  parseJSON x = Some . return <$> parseJSON x
+
+parseSome :: (MonadPlus m, J.FromJSON1 m, J.FromJSON a) => J.Value -> J.Parser (m a)
+parseSome v = getSome <$> parseJSON v
+
+parseConfig :: Config -> FilePath -> J.Value -> J.Parser Config
+parseConfig initconf conffile = parseObject initconf "config" $ do
+  configDatabase'           .<- "database"
+  configUserAgent'          .<~ "user-agent" $ const parseSome
+  configSettings'           .<~ "settings" $ \s -> fmap (`HM.union` s) . parseJSON
+  configStyleSheet'         .<~ "style-sheet" $ const parseSome
+  configScript'             .<~ "script" $ const parseSome
+  configDataDirectory'      .<~ "data-directory" $ const $ \case
+    J.Bool False -> return Nothing
+    J.Bool True  -> return $ Just $ dropExtension conffile
+    x -> parseJSON x
+  modifyObject $ \c -> c{ configCookieFile = (</> "cookies.txt") <$> configDataDirectory c }
+  configCookieFile'         .<- "cookie-file"
+  modifyObject $ \c -> c{ configCookieAcceptPolicy = maybe WK.CookieAcceptPolicyNever (const WK.CookieAcceptPolicyNoThirdParty) $ configCookieFile c }
+  configCookieAcceptPolicy' .<- "cookie-accept-policy"
+  configCacheModel'         .<- "cache-model"
+  configProcessCountLimit'  .<- "process-count-limit"
+  configProxy'              .<- "proxy"
+  configProxyIgnore'        .<- "proxy-ignore"
+  configSpellChecking'      .<- "spell-checking"
+  configProcessModel'       .<- "process-model"
+  configCharset'            .<- "charset"
+  configEditable'           .<- "editable"
+  configZoomLevel'          .<- "zoom-level"
+  configURI'                .<- "uri"
+  configPrivateMode'        .<- "private-mode"
+
 instance J.FromJSON Config where
-  parseJSON = J.withObject "config" $ \c -> do
-    -- TODO: extra fields
-    let get' f = c J..:! f
-        get f = c J..:? f
-        list f = foldMap orList <$> get' f
-    configDatabase            <- get' "database" J..!= Just def
-    configSettings            <- get  "settings" J..!= HM.empty
-    configStyleSheet          <- list "style-sheet"
-    configScript              <- list "script"
-    configDataDirectory       <- get' "data-directory"
-    configCookieFile          <- get' "cookie-file" J..!= ((</> "cookies.txt") <$> configDataDirectory)
-    configCookieAcceptPolicy  <- get' "cookie-accept-policy" J..!= maybe WK.CookieAcceptPolicyNever (const WK.CookieAcceptPolicyNoThirdParty) configCookieFile
-    configCacheModel          <- get' "cache-model" J..!= WK.CacheModelWebBrowser
-    configProcessCountLimit   <- get  "process-count-limit" J..!= 0
-    configProxy               <- get  "proxy"
-    configProxyIgnore         <- list "proxy-ignore"
-    configSpellChecking       <- get' "spell-checking" J..!= Just True J..!= False
-    configProcessModel        <- get' "process-model" J..!= WK.ProcessModelSharedSecondaryProcess
-    configCharset             <- get  "charset"
-    configEditable            <- get  "editable" J..!= False
-    configZoomLevel           <- get  "zoom-level" J..!= 1
-    configURI                 <- get  "uri"
-    configPrivateMode         <- get  "private-mode" J..!= False
-    return Config{..}
+  parseJSON = parseConfig def ""
+
+parseConfigFile :: Config -> FilePath -> IO Config
+parseConfigFile initconf conffile =
+  either fail return
+    . (J.parseEither (parseConfig initconf conffile) =<<) 
+    =<< (case takeExtension conffile of
+      ".json" -> fmap J.eitherDecodeStrict . BSC.readFile
+      _ -> fmap (left show) . Y.decodeFileEither)
+      conffile

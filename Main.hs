@@ -27,24 +27,24 @@ import Cookies
 import Database
 
 data Opts = Opts
-  { optCookies :: Maybe FilePath
+  { optConfig :: Maybe FilePath
   , optDatabase :: Maybe Database
   }
 
 instance Default Opts where
   def = Opts
-    { optCookies = Just "cookies.txt"
-    , optDatabase = Just defaultDatabase
+    { optConfig = Nothing
+    , optDatabase = Just def
     }
 
 optDescrs :: [GetOpt.OptDescr (Opts -> Opts)]
 optDescrs =
-  [ GetOpt.Option "c" ["cookies"]
-    (GetOpt.OptArg (\f o -> o{ optCookies = f }) "FILE")
-    ("Load and use cookies from FILE [" ++ fromMaybe "NONE" (optCookies def) ++ "]")
+  [ GetOpt.Option "c" ["config"]
+    (GetOpt.OptArg (\f o -> o{ optConfig = f }) "FILE")
+    "Use the given configuration file"
   , GetOpt.Option "n" ["no-database"]
-      (GetOpt.NoArg (\o -> o{ optDatabase = Nothing }))
-      "do not connect to a database"
+    (GetOpt.NoArg (\o -> o{ optDatabase = Nothing }))
+    "do not connect to a database"
   ]
 
 main :: IO ()
@@ -59,27 +59,7 @@ main = do
       exitFailure
   dir <- getAppUserDataDirectory "hawk"
 
-  db <- mapM databaseOpen optDatabase
-
-  cookies <- maybe (return emptyCookies) (loadCookiesTxt . (dir </>)) optCookies
-
-  ctx <- WK.webContextNewEphemeral
-  #setProcessModel ctx WK.ProcessModelMultipleSecondaryProcesses
-  cm <- #getCookieManager ctx
-  -- #setPersistentStorage cm "/tmp/hawk-cookies.txt" WK.CookiePersistentStorageText
-  addCookiesTo cm cookies
-
-  css <- forM ["plain.css", "style.css"] $ \f -> do
-    d <- T.IO.readFile =<< getDataFileName f
-    WK.userStyleSheetNew d WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
-
-  let global = Global
-        { globalWebContext = ctx
-        , globalStyleSheets = V.fromList css
-        , globalDatabase = db
-        }
-
-  hawk <- hawkOpen global
+  hawk <- hawkOpen config
 
   _ <- G.after (hawkWindow hawk) #destroy Gtk.mainQuit
 
