@@ -21,7 +21,7 @@ optDescrs :: [GetOpt.OptDescr (Config -> IO Config)]
 optDescrs =
   [ GetOpt.Option "c" ["config"]
     (GetOpt.ReqArg (flip parseConfigFile) "FILE")
-    "Use the given configuration file"
+    "Use the given configuration file (relative to ~/.hawk)"
   , GetOpt.Option "n" ["no-database"]
     (GetOpt.NoArg (\c -> return c{ configDatabase = Nothing }))
     "do not connect to a database"

@@ -27,6 +27,7 @@ import qualified GI.WebKit2 as WK
 
 import Types
 import Config
+import Cookies
 import Bind
 
 setStyle :: Gtk.IsWidget w => w -> BS.ByteString -> IO Gtk.CssProvider
@@ -113,12 +114,13 @@ hawkOpen hawkConfig@Config{..} = do
       [ #baseDataDirectory G.:= T.pack d ])
     configDataDirectory
   hawkCookieManager <- #getCookieManager hawkWebsiteDataManager
+    {-
   forM_ configCookieFile $ \f ->
     #setPersistentStorage hawkCookieManager (T.pack f) (case takeExtension f of
       ".txt" -> WK.CookiePersistentStorageText
-      ".text" -> WK.CookiePersistentStorageText
       "" -> WK.CookiePersistentStorageText
       _ -> WK.CookiePersistentStorageSqlite)
+                                                       -}
   #setAcceptPolicy hawkCookieManager configCookieAcceptPolicy
 
   hawkWebContext <- WK.webContextNewWithWebsiteDataManager hawkWebsiteDataManager
@@ -159,6 +161,9 @@ hawkOpen hawkConfig@Config{..} = do
   hawkBindings <- newIORef def
   hawkStyleSheet <- newIORef 0
   hawkPrivateMode <- newIORef configPrivateMode
+
+  forM_ configCookieFile $ \f ->
+    addCookiesTo hawkCookieManager =<< loadCookiesTxt f
 
   let hawk = Hawk{..}
   _ <- G.after hawkWebView #close $ #destroy hawkWindow

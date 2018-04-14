@@ -41,6 +41,7 @@ executable hawk
     , yaml
     , haskell-gi-base
     , gi-gio
+    , gi-gobject
     , gi-gdk
     , gi-gtk
     , gi-pango
@@ -50,6 +51,7 @@ executable hawk
   other-modules:
     Bind
     Config
+    Cookies
     JSON
     Open
     Prompt

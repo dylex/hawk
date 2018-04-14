@@ -37,7 +37,7 @@ import           Foreign.Ptr (nullPtr)
 import qualified Language.Haskell.TH as TH
 import           Network (PortID(..))
 import           System.Environment (getEnv)
-import           System.FilePath ((</>), dropExtension, takeExtension)
+import           System.FilePath ((</>), (<.>), dropExtension, takeExtension)
 import qualified System.IO.Unsafe as Unsafe
 
 import qualified GI.WebKit2 as WK
@@ -71,11 +71,11 @@ instance J.FromJSON GValue where
   parseJSON x = J.typeMismatch "GValue" x
 
 makeGValue :: GValue -> IO G.GValue
-makeGValue GValueNull       = GValue.buildGValue G.gtypePointer GValue.set_pointer nullPtr
-makeGValue (GValueString x) = GValue.buildGValue G.gtypeString  GValue.set_string (Just x)
-makeGValue (GValueInt    x) = GValue.buildGValue G.gtypeInt64   GValue.set_int64 x
-makeGValue (GValueDouble x) = GValue.buildGValue G.gtypeDouble  GValue.set_double x
-makeGValue (GValueBool   x) = GValue.buildGValue G.gtypeBoolean GValue.set_boolean x
+makeGValue GValueNull       = GValue.toGValue nullPtr
+makeGValue (GValueString x) = GValue.toGValue (Just x)
+makeGValue (GValueInt    x) = GValue.toGValue x
+makeGValue (GValueDouble x) = GValue.toGValue x
+makeGValue (GValueBool   x) = GValue.toGValue x
 
 setObjectProperty :: G.GObject a => a -> String -> GValue -> IO ()
 setObjectProperty o p GValueNull        = GProp.setObjectPropertyPtr    o p nullPtr
@@ -253,11 +253,15 @@ parseConfigFile initconf conffile =
     . (J.parseEither (parseConfig initconf conffile) =<<) 
     =<< (case takeExtension conffile of
       ".json" -> fmap J.eitherDecodeStrict . BSC.readFile
-      _ -> fmap (left show) . Y.decodeFileEither)
+      ".yaml" -> yaml
+      ".yml" -> yaml
+      _ -> yaml . (<.> "yaml"))
       conffile
+  where
+  yaml = fmap (left show) . Y.decodeFileEither
 
 baseConfigFile :: FilePath
-baseConfigFile = "config.yaml"
+baseConfigFile = "config"
 
 baseConfig :: IO Config
 baseConfig = parseConfigFile def baseConfigFile
