@@ -33,6 +33,7 @@ executable hawk
     , postgresql-typed
     , process
     , scientific
+    , template-haskell
     , text
     , time
     , unordered-containers
@@ -49,10 +50,7 @@ executable hawk
   other-modules:
     Bind
     Config
-    Cookies
-    Database
     JSON
     Open
     Prompt
-    Settings
     Types

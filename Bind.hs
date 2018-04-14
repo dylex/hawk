@@ -16,7 +16,6 @@ import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
 import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32)
@@ -29,7 +28,6 @@ import qualified GI.WebKit2 as WK
 
 import Types
 import Prompt
-import Cookies
 
 hawkClose :: HawkM ()
 hawkClose = do
@@ -126,13 +124,6 @@ toggleCookiePolicy = do
   next WK.CookieAcceptPolicyNever = WK.CookieAcceptPolicyNoThirdParty
   next _ = WK.CookieAcceptPolicyNever
 
-cookiesSave :: HawkM ()
-cookiesSave = do
-  wv <- asks hawkWebView
-  uri <- G.get wv #uri
-  prompt (fromMaybe T.empty uri) $
-    saveCookies
-
 type BindMap = Map.Map ([Gdk.ModifierType], Word32) (HawkM ())
 
 charToKey :: Char -> Word32
@@ -155,7 +146,7 @@ commandBinds = Map.fromList $
   , (([], 'p'), paste hawkGoto)
   , (([], 'g'), hawkGoto "http://www.google.com/")
   , (([mod1], 'c'), toggleCookiePolicy)
-  , (([ctrl, mod1], 'c'), cookiesSave)
+  -- , (([ctrl, mod1], 'c'), cookiesSave)
   , (([], 'o'), prompt T.empty hawkGoto)
   , (([], 'i'), rawMode)
   , (([], 'Q'), hawkClose)

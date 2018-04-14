@@ -18,16 +18,15 @@ import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Vector as V
+import           Database.PostgreSQL.Typed (pgConnect, pgDisconnect)
 import           System.FilePath (takeExtension)
 
 import qualified GI.Gtk as Gtk
 import qualified GI.Pango as Pango
 import qualified GI.WebKit2 as WK
 
-import Paths_hawk (getDataFileName)
 import Types
 import Config
-import Database
 import Bind
 
 setStyle :: Gtk.IsWidget w => w -> BS.ByteString -> IO Gtk.CssProvider
@@ -47,7 +46,7 @@ toHex x
 
 hawkOpen :: Config -> IO Hawk
 hawkOpen hawkConfig@Config{..} = do
-  hawkDatabase <- mapM databaseOpen configDatabase
+  hawkDatabase <- mapM pgConnect configDatabase
 
   hawkWindow <- G.new Gtk.Window
     [ #type G.:= Gtk.WindowTypeToplevel
@@ -95,11 +94,11 @@ hawkOpen hawkConfig@Config{..} = do
     setObjectProperty hawkSettings k v
 
   hawkStyleSheets <- forM configStyleSheet $ \f -> do
-    d <- TIO.readFile =<< getDataFileName f
+    d <- TIO.readFile f
     WK.userStyleSheetNew d WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
 
   hawkScripts <- forM configScript $ \f -> do
-    d <- TIO.readFile =<< getDataFileName f
+    d <- TIO.readFile f
     WK.userScriptNew d WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
 
   hawkUserContentManager <- WK.userContentManagerNew
@@ -162,7 +161,8 @@ hawkOpen hawkConfig@Config{..} = do
   hawkPrivateMode <- newIORef configPrivateMode
 
   let hawk = Hawk{..}
-  _ <- G.on hawkWebView #close $ #destroy hawkWindow
+  _ <- G.after hawkWebView #close $ #destroy hawkWindow
+  mapM_ (G.after hawkWindow #destroy . pgDisconnect) hawkDatabase
   _ <- G.on hawkWindow #keyPressEvent $ runHawkM hawk . runBind
 
   #showAll hawkWindow

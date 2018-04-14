@@ -9,6 +9,8 @@ module Config
   , setObjectProperty
   , Config(..)
   , parseConfigFile
+  , baseConfig
+  , useTPGConfig
   ) where
 
 import           Control.Arrow (left)
@@ -30,8 +32,9 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32, Word16)
 import qualified Data.Yaml as Y
-import           Database.PostgreSQL.Typed (PGDatabase(..), defaultPGDatabase)
+import           Database.PostgreSQL.Typed (PGDatabase(..), defaultPGDatabase, useTPGDatabase)
 import           Foreign.Ptr (nullPtr)
+import qualified Language.Haskell.TH as TH
 import           Network (PortID(..))
 import           System.Environment (getEnv)
 import           System.FilePath ((</>), dropExtension, takeExtension)
@@ -121,7 +124,7 @@ Lens.makeLensesWith (Lens.lensField Lens..~ Lens.mappingNamer (return . (++ "'")
 
 instance Default Config where
   def = Config
-    { configDatabase = Just def
+    { configDatabase = Just defaultParse
     , configUserAgent = V.empty
     , configSettings = HM.empty
     , configStyleSheet = V.empty
@@ -161,9 +164,6 @@ instance J.FromJSON PGDatabase where
       , pgDBPass = BSC.pack pass
       , pgDBDebug = debug
       }
-
-instance Default PGDatabase where
-  def = defaultParse
 
 instance J.FromJSON WK.CookieAcceptPolicy where
   parseJSON J.Null                      = return WK.CookieAcceptPolicyNever
@@ -255,3 +255,12 @@ parseConfigFile initconf conffile =
       ".json" -> fmap J.eitherDecodeStrict . BSC.readFile
       _ -> fmap (left show) . Y.decodeFileEither)
       conffile
+
+baseConfigFile :: FilePath
+baseConfigFile = "config.yaml"
+
+baseConfig :: IO Config
+baseConfig = parseConfigFile def baseConfigFile
+
+useTPGConfig :: TH.DecsQ
+useTPGConfig = maybe (return []) useTPGDatabase . configDatabase =<< TH.runIO baseConfig
