@@ -22,3 +22,4 @@ user-agent:
   - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537 (KHTML, like Gecko) Chrome/40 Safari/537"
   - "Mozilla/5.0 (X11; Linux x86_64) Gecko/20180101 Firefox/45.0"
   - "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; WOW64; Trident/5.0)"
+cookie-accept-policy: false

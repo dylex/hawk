@@ -5,18 +5,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Cookies 
-  ( emptyCookies
-  , loadCookiesTxt
-  , loadCookiesDB
-  , saveCookiesTxt
-  , addCookiesTo
-  , addCookies
+  ( loadCookies
   , saveCookies
   ) where
 
-#if 0
-import           Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
-#endif
 import           Control.Monad ((<=<), guard, when, void)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (asks)
@@ -27,7 +19,6 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Function (on)
 import           Data.Maybe (fromMaybe, isJust, mapMaybe)
 import           Data.Monoid ((<>))
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 #if MIN_VERSION_time(1,8,0)
@@ -56,11 +47,6 @@ data Cookie = Cookie
 
 instance Ord Cookie where
   compare a b = mconcat $ map (\f -> on compare f a b) [cookieDomain, cookiePath, cookieName]
-
-type Cookies = Set.Set Cookie
-
-emptyCookies :: Cookies
-emptyCookies = Set.empty
 
 parseCookieTxt :: BS.ByteString -> Maybe Cookie
 parseCookieTxt = pc . BSC.split '\t' where
@@ -111,21 +97,22 @@ getTime =
   round <$> getPOSIXTime
 #endif
 
-loadCookiesTxt :: FilePath -> IO Cookies
+loadCookiesTxt :: FilePath -> IO [Cookie]
 loadCookiesTxt f = do
   t <- getTime
-  Set.fromDistinctAscList . mapMaybe (checkExpired t <=< parseCookieTxt) . BSC.lines <$> BS.readFile f
+  mapMaybe (checkExpired t <=< parseCookieTxt) . BSC.lines <$> BS.readFile f
 
 saveCookiesTxt :: FilePath -> [Cookie] -> IO ()
 saveCookiesTxt f s = do
+  -- TODO: merge with existing cookies
   t <- getTime
   BSL.writeFile f $ BSB.toLazyByteString $ foldMap (foldMap (\c -> writeCookieTxt c <> BSB.char7 '\n') . checkExpired t) s
 
-loadCookiesDB :: PGConnection -> IO Cookies
+loadCookiesDB :: PGConnection -> IO [Cookie]
 loadCookiesDB db = do
   -- might as well expire them now
   _ <- pgExecute db [pgSQL|DELETE FROM cookie WHERE expires <= now()|]
-  Set.fromList <$> pgQuery db (toCookie <$> [pgSQL|!SELECT domain::text, path, name, value, secure, httponly, expires FROM cookie|])
+  pgQuery db (toCookie <$> [pgSQL|!SELECT domain::text, path, name, value, secure, httponly, expires FROM cookie|])
   where
   toCookie (cookieDomain, cookiePath, cookieName, cookieValue, cookieSecure, cookieHttpOnly, expires) = Cookie{ cookieExpires = maybe (-1) (round . utcTimeToPOSIXSeconds) expires, ..}
 
@@ -171,34 +158,37 @@ addCookie :: WK.CookieManager -> Int -> Cookie -> IO ()
 addCookie cm t c = do
   s <- newSoupCookie t c
   print c
-#if 0
-  v <- newEmptyMVar
-  WK.cookieManagerAddCookie cm s Gio.noCancellable $ Just $ \_ ->
-    putMVar v <=< WK.cookieManagerAddCookieFinish cm
-  takeMVar v
-#else
   WK.cookieManagerAddCookie cm s Gio.noCancellable $ Just $ \_ cb -> do
     WK.cookieManagerAddCookieFinish cm cb
-#endif
 
-addCookiesTo :: WK.CookieManager -> Cookies -> IO ()
-addCookiesTo cm s = do
-  t <- getTime
-  mapM_ (addCookie cm t) s
-
-addCookies :: Cookies -> HawkM ()
+addCookies :: [Cookie] -> HawkM ()
 addCookies s = do
   cm <- asksCookieManager
-  liftIO $ addCookiesTo cm s
+  liftIO $ do
+    t <- getTime
+    mapM_ (addCookie cm t) s
+
+getCookies :: T.Text -> ([Cookie] -> IO ()) -> HawkM ()
+getCookies uri f = do
+  cm <- asksCookieManager
+  #getCookies cm uri Gio.noCancellable $ Just $ \_ cb ->
+    f =<< mapM getSoupCookie =<< #getCookiesFinish cm cb
+
+cookieStore :: HawkM (Maybe (Either PGConnection FilePath))
+cookieStore =
+  maybe
+    (fmap Left <$> asks hawkDatabase)
+    (return . Just . Right)
+    =<< asks (configCookieFile . hawkConfig)
+
+loadCookies :: HawkM ()
+loadCookies =
+  mapM_ (addCookies <=< liftIO . either loadCookiesDB loadCookiesTxt)
+    =<< cookieStore
 
 saveCookies :: T.Text -> HawkM ()
 saveCookies uri =
-  mapM_ (\dst -> do
-    cm <- asksCookieManager
-    #getCookies cm uri Gio.noCancellable $ Just $ \_ cb -> do
-      -- TODO: remove old cookies for site
-      cl <- mapM getSoupCookie =<< #getCookiesFinish cm cb
-      either saveCookiesTxt saveCookiesDB dst cl)
-    =<< maybe
-      (fmap Left <$> asks (configCookieFile . hawkConfig))
-      (return . Just . Right) =<< asks hawkDatabase
+  -- TODO: remove old cookies for site (if db)
+  mapM_ (\store ->
+    getCookies uri (either saveCookiesDB saveCookiesTxt store))
+    =<< cookieStore

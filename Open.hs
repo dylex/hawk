@@ -5,7 +5,7 @@ module Open
   ( hawkOpen
   ) where
 
-import           Control.Monad ((<=<), unless, forM, forM_)
+import           Control.Monad (unless, forM, forM_)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy as BSL
@@ -108,19 +108,19 @@ hawkOpen hawkConfig@Config{..} = do
   unless (V.null hawkScripts) $
     #addScript hawkUserContentManager $ V.unsafeHead hawkScripts
 
+  print configDataDirectory
   hawkWebsiteDataManager <- maybe
     WK.websiteDataManagerNewEphemeral
     (\d -> G.new WK.WebsiteDataManager
       [ #baseDataDirectory G.:= T.pack d ])
     configDataDirectory
   hawkCookieManager <- #getCookieManager hawkWebsiteDataManager
-    {-
+  {- This doesn't seem to work:
   forM_ configCookieFile $ \f ->
     #setPersistentStorage hawkCookieManager (T.pack f) (case takeExtension f of
       ".txt" -> WK.CookiePersistentStorageText
       "" -> WK.CookiePersistentStorageText
-      _ -> WK.CookiePersistentStorageSqlite)
-                                                       -}
+      _ -> WK.CookiePersistentStorageSqlite) -}
   #setAcceptPolicy hawkCookieManager configCookieAcceptPolicy
 
   hawkWebContext <- WK.webContextNewWithWebsiteDataManager hawkWebsiteDataManager
@@ -162,15 +162,13 @@ hawkOpen hawkConfig@Config{..} = do
   hawkStyleSheet <- newIORef 0
   hawkPrivateMode <- newIORef configPrivateMode
 
-  forM_ configCookieFile $
-    addCookiesTo hawkCookieManager <=< loadCookiesTxt
-  forM_ hawkDatabase $
-    addCookiesTo hawkCookieManager <=< loadCookiesDB
-
   let hawk = Hawk{..}
+
   _ <- G.after hawkWebView #close $ #destroy hawkWindow
   mapM_ (G.after hawkWindow #destroy . pgDisconnect) hawkDatabase
   _ <- G.on hawkWindow #keyPressEvent $ runHawkM hawk . runBind
+
+  runHawkM hawk loadCookies
 
   #showAll hawkWindow
 
