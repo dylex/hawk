@@ -8,15 +8,15 @@ module Bind
   ) where
 
 import           Control.Arrow (first, second, (&&&))
-import           Control.Monad (void, when, forM_)
+import           Control.Monad (void, when)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ask, asks)
 import           Data.Default (def)
+import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
 import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32)
@@ -28,7 +28,6 @@ import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
 
 import Types
-import Config
 import Prompt
 import Cookies
 
@@ -129,12 +128,10 @@ toggleCookiePolicy = do
 
 cookiesSave :: HawkM ()
 cookiesSave = do
-  cf <- asks (configCookieFile . hawkConfig)
-  forM_ cf $ \f -> do
-    wv <- asks hawkWebView
-    uri <- G.get wv #uri
-    prompt (fromMaybe T.empty uri) $
-      saveCookies f
+  wv <- asks hawkWebView
+  uri <- G.get wv #uri
+  prompt (fold uri) $
+    saveCookies
 
 type BindMap = Map.Map ([Gdk.ModifierType], Word32) (HawkM ())
 

@@ -5,7 +5,7 @@ module Open
   ( hawkOpen
   ) where
 
-import           Control.Monad (unless, forM, forM_)
+import           Control.Monad ((<=<), unless, forM, forM_)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy as BSL
@@ -162,8 +162,10 @@ hawkOpen hawkConfig@Config{..} = do
   hawkStyleSheet <- newIORef 0
   hawkPrivateMode <- newIORef configPrivateMode
 
-  forM_ configCookieFile $ \f ->
-    addCookiesTo hawkCookieManager =<< loadCookiesTxt f
+  forM_ configCookieFile $
+    addCookiesTo hawkCookieManager <=< loadCookiesTxt
+  forM_ hawkDatabase $
+    addCookiesTo hawkCookieManager <=< loadCookiesDB
 
   let hawk = Hawk{..}
   _ <- G.after hawkWebView #close $ #destroy hawkWindow

@@ -163,6 +163,7 @@ instance J.FromJSON PGDatabase where
       , pgDBUser = BSC.pack user
       , pgDBPass = BSC.pack pass
       , pgDBDebug = debug
+      , pgDBParams = [("search_path", "hawk,global")]
       }
 
 instance J.FromJSON WK.CookieAcceptPolicy where
