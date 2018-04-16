@@ -9,6 +9,7 @@ module Cookies
   , saveCookies
   ) where
 
+import           Control.Exception (handleJust)
 import           Control.Monad ((<=<), guard, when, void)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (asks)
@@ -28,6 +29,7 @@ import           Data.Time.Clock.POSIX (getPOSIXTime)
 #endif
 import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds, posixSecondsToUTCTime)
 import           Database.PostgreSQL.Typed (PGConnection, pgSQL, pgQuery, pgExecute)
+import           System.IO.Error (isDoesNotExistError)
 
 import qualified GI.Gio as Gio
 import qualified GI.Soup as Soup
@@ -100,7 +102,9 @@ getTime =
 loadCookiesTxt :: FilePath -> IO [Cookie]
 loadCookiesTxt f = do
   t <- getTime
-  mapMaybe (checkExpired t <=< parseCookieTxt) . BSC.lines <$> BS.readFile f
+  mapMaybe (checkExpired t <=< parseCookieTxt) . BSC.lines <$>
+    handleJust (guard . isDoesNotExistError) (const $ return mempty)
+    (BS.readFile f)
 
 saveCookiesTxt :: FilePath -> [Cookie] -> IO ()
 saveCookiesTxt f s = do
@@ -157,7 +161,6 @@ getSoupCookie s = do
 addCookie :: WK.CookieManager -> Int -> Cookie -> IO ()
 addCookie cm t c = do
   s <- newSoupCookie t c
-  print c
   WK.cookieManagerAddCookie cm s Gio.noCancellable $ Just $ \_ cb -> do
     WK.cookieManagerAddCookieFinish cm cb
 

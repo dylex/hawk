@@ -15,6 +15,7 @@ import           Data.Default (def)
 import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
+import           Data.Int (Int32)
 import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
@@ -133,6 +134,16 @@ cookiesSave = do
   prompt (fold uri) $
     saveCookies
 
+backForward :: Int32 -> HawkM ()
+backForward 0 = return ()
+backForward (-1) = #goBack =<< asks hawkWebView
+backForward 1 = #goForward =<< asks hawkWebView
+backForward n = do
+  wv <- asks hawkWebView
+  bf <- #getBackForwardList wv
+  i <- #getNthItem bf n
+  #goToBackForwardListItem wv i
+
 type BindMap = Map.Map ([Gdk.ModifierType], Word32) (HawkM ())
 
 charToKey :: Char -> Word32
@@ -156,7 +167,11 @@ commandBinds = Map.fromList $
   , (([], 'g'), hawkGoto "http://www.google.com/")
   , (([mod1], 'c'), toggleCookiePolicy)
   , (([ctrl, mod1], 'c'), cookiesSave)
+  , (([], 'r'), #reload =<< asks hawkWebView)
+  , (([], 'R'), #reloadBypassCache =<< asks hawkWebView)
   , (([], 'o'), prompt T.empty hawkGoto)
+  , (([], 'e'), backForward . maybe (-1) (negate . fromIntegral) =<< countMaybe)
+  , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)
   , (([], 'i'), rawMode)
   , (([], 'Q'), hawkClose)
   , (([], 'z'), #stopLoading =<< asks hawkWebView)

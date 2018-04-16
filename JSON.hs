@@ -15,6 +15,7 @@ import           Control.Monad (unless)
 import           Control.Monad.State (StateT, execStateT, get, put, modify, lift)
 import           Data.Aeson (parseJSON)
 import qualified Data.Aeson as J
+import qualified Data.Aeson.Internal as J ((<?>), JSONPathElement(Key))
 import qualified Data.Aeson.Types as J (Parser, parseEither, emptyObject)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
@@ -29,7 +30,7 @@ type ObjectParser a = StateT (J.Object, a) J.Parser ()
   (o, r) <- get
   mapM_
     (\v -> do
-      x <- lift $ p (r ^. f) v
+      x <- lift $ p (r ^. f) v J.<?> J.Key k
       put (HM.delete k o, f .~ x $ r))
     $ HM.lookup k o
 

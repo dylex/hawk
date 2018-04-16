@@ -108,7 +108,6 @@ hawkOpen hawkConfig@Config{..} = do
   unless (V.null hawkScripts) $
     #addScript hawkUserContentManager $ V.unsafeHead hawkScripts
 
-  print configDataDirectory
   hawkWebsiteDataManager <- maybe
     WK.websiteDataManagerNewEphemeral
     (\d -> G.new WK.WebsiteDataManager
@@ -140,6 +139,7 @@ hawkOpen hawkConfig@Config{..} = do
     , #userContentManager G.:= hawkUserContentManager
     , #zoomLevel G.:= configZoomLevel
     ]
+  #setCustomCharset hawkWebView configCharset
   #packStart hawkTopBox hawkWebView True True 0
 
 
