@@ -55,4 +55,5 @@ executable hawk
     JSON
     Open
     Prompt
+    Script
     Types

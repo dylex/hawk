@@ -37,6 +37,7 @@ import           Foreign.Ptr (nullPtr)
 import qualified Language.Haskell.TH as TH
 import           Network (PortID(..))
 import           System.Environment (getEnv)
+import           System.Directory (getXdgDirectory, XdgDirectory(XdgCache))
 import           System.FilePath ((</>), (<.>), dropExtension, takeExtension)
 import qualified System.IO.Unsafe as Unsafe
 
@@ -50,6 +51,7 @@ data GValue
   | GValueInt Int64
   | GValueDouble Double
   | GValueBool Bool
+  deriving (Eq, Show)
 
 instance J.ToJSON GValue where
   toJSON GValueNull       = J.Null
@@ -99,6 +101,7 @@ data Config = Config
 
   -- WebsiteDataManager
   , configDataDirectory :: !(Maybe FilePath)
+  , configCacheDirectory :: !(Maybe FilePath)
   , configCookieFile :: !(Maybe FilePath)
   , configCookieAcceptPolicy :: !WK.CookieAcceptPolicy
 
@@ -130,6 +133,7 @@ instance Default Config where
     , configStyleSheet = V.empty
     , configScript = V.empty
     , configDataDirectory = Nothing
+    , configCacheDirectory = Just $ Unsafe.unsafeDupablePerformIO $ getXdgDirectory XdgCache "hawk"
     , configCookieFile = Nothing
     , configCookieAcceptPolicy = WK.CookieAcceptPolicyNever
     , configCacheModel = WK.CacheModelWebBrowser
@@ -229,6 +233,7 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
     J.Bool False -> return Nothing
     J.Bool True  -> return $ Just $ dropExtension conffile
     x -> parseJSON x
+  configCacheDirectory'     .<- "cache-directory"
   modifyObject $ \c -> c{ configCookieFile = (</> "cookies.txt") <$> configDataDirectory c }
   configCookieFile'         .<- "cookie-file"
   modifyObject $ \c -> c{ configCookieAcceptPolicy = maybe WK.CookieAcceptPolicyNever (const WK.CookieAcceptPolicyNoThirdParty) $ configCookieFile c }

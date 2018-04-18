@@ -35,6 +35,7 @@ import qualified GI.Gio as Gio
 import qualified GI.Soup as Soup
 import qualified GI.WebKit2 as WK
 
+import JSON (mintersperse)
 import Types
 import Config
 
@@ -70,10 +71,6 @@ parseCookieTxt = pc . BSC.split '\t' where
   tf "FALSE" = Just False
   tf "TRUE" = Just True
   tf _ = Nothing
-
-mintersperse :: Monoid m => m -> [m] -> m
-mintersperse _ [] = mempty
-mintersperse d (x:l) = x <> mconcat (map (d <>) l)
 
 writeCookieTxt :: Cookie -> BSB.Builder
 writeCookieTxt Cookie{..} = mintersperse (BSB.char7 '\t')
@@ -179,10 +176,10 @@ getCookies uri f = do
 
 cookieStore :: HawkM (Maybe (Either PGConnection FilePath))
 cookieStore =
-  maybe
+  -- maybe
     (fmap Left <$> asks hawkDatabase)
-    (return . Just . Right)
-    =<< asks (configCookieFile . hawkConfig)
+    -- (return . Just . Right)
+    -- =<< asks (configCookieFile . hawkConfig)
 
 loadCookies :: HawkM ()
 loadCookies =

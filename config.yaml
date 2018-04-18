@@ -11,12 +11,15 @@ settings:
   enable-java: False
   enable-offline-web-application-cache: False
   enable-plugins: False
+  enable-write-console-messages-to-stdout: True
   hardware-acceleration-policy: 2 # never
   media-playback-requires-user-gesture: True
   zoom-text-only: True
 style-sheet:
   - "plain.css"
   - "style.css"
+script:
+  - "hawk.js"
 user-agent:
   - "hawk (X11; Linux x86_64) WebKit/2.20"
   - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537 (KHTML, like Gecko) Chrome/40 Safari/537"

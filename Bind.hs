@@ -11,6 +11,7 @@ import           Control.Arrow (first, second, (&&&))
 import           Control.Monad (void, when)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ask, asks)
+import qualified Data.Aeson as J
 import           Data.Default (def)
 import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
@@ -31,6 +32,7 @@ import qualified GI.WebKit2 as WK
 import Types
 import Prompt
 import Cookies
+import Script
 
 hawkClose :: HawkM ()
 hawkClose = do
@@ -42,18 +44,21 @@ hawkGoto url = do
   wv <- asks hawkWebView
   #loadUri wv url
 
+setStatusLeft :: T.Text -> HawkM ()
+setStatusLeft t = do
+  stat <- asks hawkStatusLeft
+  #setText stat t
+
 settingStatus :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, Show a) => GA.AttrLabelProxy attr -> HawkM ()
 settingStatus attr = do
   sets <- asksSettings
   x <- G.get sets attr
-  stat <- asks hawkStatusLeft
-  #setText stat $ T.pack $ symbolVal attr ++ " " ++ show x
+  setStatusLeft $ T.pack $ symbolVal attr ++ " " ++ show x
 
 commandMode :: HawkM ()
 commandMode = do
   _ <- countMaybe
-  stat <- asks hawkStatusLeft
-  #setText stat T.empty
+  setStatusLeft T.empty
   writeRef hawkBindings def
 
 rawMode :: HawkM ()
@@ -97,8 +102,7 @@ zoom f = do
   wv <- asks hawkWebView
   G.set wv [#zoomLevel G.:~ f]
   x <- G.get wv #zoomLevel
-  stat <- asks hawkStatusLeft
-  #setText stat $ T.pack $ "zoomLevel " ++ show x
+  setStatusLeft $ T.pack $ "zoomLevel " ++ show x
 
 toggleStyleSheet :: HawkM ()
 toggleStyleSheet = do
@@ -144,6 +148,14 @@ backForward n = do
   i <- #getNthItem bf n
   #goToBackForwardListItem wv i
 
+linkSelect :: T.Text -> T.Text -> HawkM ()
+linkSelect t r = callScript "linkSelect" [J.String t, J.String r]
+
+inspector :: HawkM ()
+inspector = do
+  ins <- #getInspector =<< asks hawkWebView
+  #show ins
+
 type BindMap = Map.Map ([Gdk.ModifierType], Word32) (HawkM ())
 
 charToKey :: Char -> Word32
@@ -159,6 +171,8 @@ commandBinds = Map.fromList $
   , (([], '%'), toggleOrCountSetting #enableJavascript)
   , (([], '&'), toggleStyleSheet)
   , (([], '*'), toggleOrCountSetting #enableWebgl)
+  , (([], '['), linkSelect "prev" "\\bprev|^<")
+  , (([], ']'), linkSelect "next" "\\bnext|^>")
   , (([], '='), zoom (const 1))
   , (([mod1], '='), toggleOrCountSetting #zoomTextOnly)
   , (([], '+'), zoom (0.1 +))
@@ -173,7 +187,9 @@ commandBinds = Map.fromList $
   , (([], 'e'), backForward . maybe (-1) (negate . fromIntegral) =<< countMaybe)
   , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)
   , (([], 'i'), rawMode)
+  , (([], 'I'), inspector)
   , (([], 'Q'), hawkClose)
+  , (([], 'J'), setStatusLeft "js" >> prompt T.empty runScript)
   , (([], 'z'), #stopLoading =<< asks hawkWebView)
   ] where
   mod1 = Gdk.ModifierTypeMod1Mask

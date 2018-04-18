@@ -12,8 +12,10 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
 import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
+import qualified Data.GI.Base.Properties as GProp
 import qualified Data.HashMap.Strict as HM
 import           Data.IORef (newIORef)
+import           Data.Maybe (isNothing)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -108,21 +110,21 @@ hawkOpen hawkConfig@Config{..} = do
   unless (V.null hawkScripts) $
     #addScript hawkUserContentManager $ V.unsafeHead hawkScripts
 
-  hawkWebsiteDataManager <- maybe
-    WK.websiteDataManagerNewEphemeral
-    (\d -> G.new WK.WebsiteDataManager
-      [ #baseDataDirectory G.:= T.pack d ])
-    configDataDirectory
-  hawkCookieManager <- #getCookieManager hawkWebsiteDataManager
-  {- This doesn't seem to work:
+  hawkWebContext <- WK.webContextNewWithWebsiteDataManager =<<
+    G.new WK.WebsiteDataManager
+      (                 (:) (#isEphemeral        G.:= isNothing configDataDirectory)
+      $ maybe id (\d -> (:) (#baseDataDirectory  G.:= T.pack d)) configDataDirectory
+      $ maybe id (\d -> (:) (#baseCacheDirectory G.:= T.pack d)) configCacheDirectory
+      [])
+
+  hawkCookieManager <- #getCookieManager hawkWebContext
   forM_ configCookieFile $ \f ->
     #setPersistentStorage hawkCookieManager (T.pack f) (case takeExtension f of
       ".txt" -> WK.CookiePersistentStorageText
       "" -> WK.CookiePersistentStorageText
-      _ -> WK.CookiePersistentStorageSqlite) -}
+      _ -> WK.CookiePersistentStorageSqlite)
   #setAcceptPolicy hawkCookieManager configCookieAcceptPolicy
 
-  hawkWebContext <- WK.webContextNewWithWebsiteDataManager hawkWebsiteDataManager
   #setCacheModel hawkWebContext configCacheModel
   #setWebProcessCountLimit hawkWebContext configProcessCountLimit
   {- haskell-gi #154
@@ -133,10 +135,12 @@ hawkOpen hawkConfig@Config{..} = do
   #setSpellCheckingEnabled hawkWebContext configSpellChecking
   #setProcessModel hawkWebContext configProcessModel
 
+
   hawkWebView <- G.new WK.WebView
     [ #webContext G.:= hawkWebContext
-    , #editable G.:= configEditable
+    , #settings G.:= hawkSettings
     , #userContentManager G.:= hawkUserContentManager
+    , #editable G.:= configEditable
     , #zoomLevel G.:= configZoomLevel
     ]
   #setCustomCharset hawkWebView configCharset
