@@ -1,0 +1,14 @@
+{
+  "name": "hawk",
+  "version": "0.0.0",
+  "description": "",
+  "main": "hawk.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "author": "",
+  "license": "BSD-3-Clause",
+  "devDependencies": {
+    "typescript": "^2.6.0"
+  }
+}
