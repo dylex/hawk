@@ -8,7 +8,7 @@ copyright:      2018
 license:        BSD3
 build-type:     Simple
 cabal-version:  >= 1.10
-data-files:     style.css plain.css
+data-files:     hawk.css hawk.js
 
 source-repository head
   type: git
@@ -49,6 +49,7 @@ executable hawk
     , gi-webkit2
   main-is: Main.hs
   other-modules:
+    Paths_hawk
     Bind
     Config
     Cookies
@@ -57,3 +58,4 @@ executable hawk
     Prompt
     Script
     Types
+    UI

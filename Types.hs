@@ -1,15 +1,17 @@
 {-# LANGUAGE TupleSections #-}
 
 module Types
-  ( Bindings(..)
+  ( Global(..)
+  , Bindings(..)
   , Hawk(..)
   , HawkM
   , runHawkM
-  , asksSettings
-  , asksWebContext
-  , asksUserContentManager
-  , asksWebsiteDataManager 
-  , asksCookieManager
+  , asksGlobal
+  , askSettings
+  , askWebContext
+  , askUserContentManager
+  , askWebsiteDataManager 
+  , askCookieManager
   , readRef
   , writeRef
   , modifyRef
@@ -52,8 +54,14 @@ data Bindings
 instance Default Bindings where
   def = Command Nothing
 
+data Global = Global
+  { globalStyleSheet :: !WK.UserStyleSheet
+  , globalScript :: !WK.UserScript
+  }
+
 data Hawk = Hawk
-  { hawkConfig :: !Config
+  { hawkGlobal :: !Global
+  , hawkConfig :: !Config
   , hawkDatabase :: !(Maybe PGConnection)
   , hawkWindow :: !Gtk.Window
   , hawkStatusBox :: !Gtk.Box
@@ -72,20 +80,23 @@ type HawkM = ReaderT Hawk IO
 runHawkM :: Hawk -> HawkM a -> IO a
 runHawkM = flip runReaderT
 
-asksSettings :: HawkM WK.Settings
-asksSettings = #getSettings =<< asks hawkWebView
+asksGlobal :: (Global -> a) -> HawkM a
+asksGlobal = asks . (. hawkGlobal)
 
-asksWebContext :: HawkM WK.WebContext
-asksWebContext = #getContext =<< asks hawkWebView
+askSettings :: HawkM WK.Settings
+askSettings = #getSettings =<< asks hawkWebView
 
-asksUserContentManager :: HawkM WK.UserContentManager
-asksUserContentManager = #getUserContentManager =<< asks hawkWebView
+askWebContext :: HawkM WK.WebContext
+askWebContext = #getContext =<< asks hawkWebView
 
-asksWebsiteDataManager :: HawkM WK.WebsiteDataManager
-asksWebsiteDataManager = #getWebsiteDataManager =<< asks hawkWebView
+askUserContentManager :: HawkM WK.UserContentManager
+askUserContentManager = #getUserContentManager =<< asks hawkWebView
 
-asksCookieManager :: HawkM WK.CookieManager
-asksCookieManager = #getCookieManager =<< asksWebsiteDataManager
+askWebsiteDataManager :: HawkM WK.WebsiteDataManager
+askWebsiteDataManager = #getWebsiteDataManager =<< asks hawkWebView
+
+askCookieManager :: HawkM WK.CookieManager
+askCookieManager = #getCookieManager =<< askWebsiteDataManager
 
 readRef :: (Hawk -> IORef a) -> HawkM a
 readRef f =

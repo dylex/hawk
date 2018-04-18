@@ -24,7 +24,7 @@ namespace __HaWK__ {
   function blockTest(type: string, src: string|undefined) {
     let block = blocks[type/*.toUpperCase()*/];
     if (!block) {
-      type += "<unknown>";
+      type += "<def>";
       block = blocks.def;
     }
     let res = block.def;
@@ -37,8 +37,9 @@ namespace __HaWK__ {
 
   function initDocument(doc: HTMLDocument) {
     doc.addEventListener('focusin', function focusin(event) {
-      if (event.target instanceof HTMLInputElement) {
-        console.log('focusin ' + event.target.type);
+      if (event.target instanceof HTMLInputElement && (event.target.type === 'text' || event.target.type === 'password') || 
+          event.target instanceof HTMLTextAreaElement) {
+        console.log('TODO: insert');
       }
     }, false);
     doc.addEventListener('beforeload', function beforeload(event) {
@@ -68,15 +69,14 @@ namespace __HaWK__ {
     links[n].focus();
   }
 
-  export function linkSelect(link: string, match: string) {
+  export function linkSelect(link: string, match: RegExp) {
     const el = document.querySelector('link[rel=' + link + ']');
     if (el instanceof HTMLLinkElement) {
       location.assign(el.href);
       return;
     }
-    const regex = RegExp(match);
     for (var i = linkSelected+1; i < links.length; i++) {
-      if (regex.test(links[i].text)) {
+      if (match.test(links[i].text)) {
         linkFocus(i);
         break;
       }

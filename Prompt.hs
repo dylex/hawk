@@ -9,12 +9,15 @@ import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 
 import Types
+import UI
 
-prompt :: T.Text -> (T.Text -> HawkM ()) -> HawkM ()
-prompt i f = do
+prompt :: T.Text -> T.Text -> (T.Text -> HawkM ()) -> HawkM ()
+prompt p i f = do
+  setStatusLeft p
   hawk <- ask
   ent <- G.new Gtk.Entry
     [ #halign G.:= Gtk.AlignStart
+    , #hexpand G.:= True
     ]
   #setText ent i
   #packStart (hawkStatusBox hawk) ent True True 0
@@ -22,6 +25,7 @@ prompt i f = do
   modifyRef_ hawkBindings $ \bind ->
     PassThru $ do
       #destroy ent
+      setStatusLeft ""
       return bind
   _ <- G.on ent #activate $ runHawkM hawk $ do
     t <- #getText ent

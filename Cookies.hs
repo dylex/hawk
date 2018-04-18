@@ -163,14 +163,14 @@ addCookie cm t c = do
 
 addCookies :: [Cookie] -> HawkM ()
 addCookies s = do
-  cm <- asksCookieManager
+  cm <- askCookieManager
   liftIO $ do
     t <- getTime
     mapM_ (addCookie cm t) s
 
 getCookies :: T.Text -> ([Cookie] -> IO ()) -> HawkM ()
 getCookies uri f = do
-  cm <- asksCookieManager
+  cm <- askCookieManager
   #getCookies cm uri Gio.noCancellable $ Just $ \_ cb ->
     f =<< mapM getSoupCookie =<< #getCookiesFinish cm cb
 

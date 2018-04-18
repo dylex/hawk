@@ -34,6 +34,7 @@ main :: IO ()
 main = do
   Just (prog:args) <- Gtk.init . Just . map T.pack =<< (:) <$> getProgName <*> getArgs
 
+  global <- globalOpen
   setCurrentDirectory =<< getAppUserDataDirectory "hawk"
   conf <- baseConfig
 
@@ -44,7 +45,7 @@ main = do
       hPutStrLn stderr $ GetOpt.usageInfo (T.unpack prog ++ " [OPTIONS] [URI]") optDescrs
       exitFailure
 
-  hawk <- hawkOpen config
+  hawk <- hawkOpen global config
 
   _ <- G.after (hawkWindow hawk) #destroy Gtk.mainQuit
 
