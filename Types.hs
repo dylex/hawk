@@ -22,6 +22,7 @@ import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ReaderT, runReaderT, asks)
 import           Data.Default (Default(def))
 import           Data.IORef (IORef, readIORef, writeIORef, atomicModifyIORef')
+import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32)
 import           Database.PostgreSQL.Typed (PGConnection)
@@ -55,7 +56,8 @@ instance Default Bindings where
   def = Command Nothing
 
 data Global = Global
-  { globalStyleSheet :: !WK.UserStyleSheet
+  { globalUserAgent :: !T.Text
+  , globalStyleSheet :: !WK.UserStyleSheet
   , globalScript :: !WK.UserScript
   }
 

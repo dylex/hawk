@@ -28,6 +28,7 @@ import qualified Data.Vector as V
 import           Database.PostgreSQL.Typed (pgConnect, pgDisconnect)
 import           GHC.TypeLits (KnownSymbol)
 import           System.FilePath (takeExtension)
+import qualified System.Info as SI
 
 import qualified GI.Gtk as Gtk
 import qualified GI.Pango as Pango
@@ -58,6 +59,9 @@ toHex x
 
 globalOpen :: IO Global
 globalOpen = do
+  vmaj <- WK.getMajorVersion
+  vmin <- WK.getMinorVersion
+  let globalUserAgent = T.pack $ "hawk (X11; " <> SI.os <> " " <> SI.arch <> ") WebKit/" <> show vmaj <> "." <> show vmin
   css <- TIO.readFile =<< getDataFileName "hawk.css"
   globalStyleSheet <- WK.userStyleSheetNew css WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
   js <- TIO.readFile =<< getDataFileName "hawk.js"
@@ -109,9 +113,9 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   #packEnd hawkStatusBox hawkStatusURI True True 0
 
 
-  hawkSettings <- WK.settingsNew
-  unless (V.null configUserAgent) $
-    G.set hawkSettings [#userAgent G.:= V.unsafeHead configUserAgent]
+  hawkSettings <- G.new WK.Settings
+    [ #userAgent G.:= globalUserAgent
+    ]
   forM_ (HM.toList configSettings) $ \(k, v) ->
     setObjectProperty hawkSettings k v
 

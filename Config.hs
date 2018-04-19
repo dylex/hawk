@@ -8,8 +8,8 @@ module Config
   , makeGValue
   , setObjectProperty
   , Config(..)
-  , parseConfigFile
-  , baseConfig
+  , loadConfigFile
+  , baseConfigFile
   , useTPGConfig
   ) where
 
@@ -26,6 +26,7 @@ import qualified Data.GI.Base.GValue as GValue
 import qualified Data.GI.Base.Properties as GProp
 import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
+import           Data.List (isPrefixOf)
 import           Data.Maybe (fromMaybe, isJust)
 import           Data.Scientific (floatingOrInteger)
 import qualified Data.Text as T
@@ -37,13 +38,14 @@ import           Foreign.Ptr (nullPtr)
 import qualified Language.Haskell.TH as TH
 import           Network (PortID(..))
 import           System.Environment (getEnv)
-import           System.Directory (getXdgDirectory, XdgDirectory(XdgCache))
-import           System.FilePath ((</>), (<.>), dropExtension, takeExtension)
+import           System.Directory (doesFileExist, getXdgDirectory, XdgDirectory(XdgCache))
+import           System.FilePath ((</>), (<.>), dropExtension, takeExtension, takeDirectory)
 import qualified System.IO.Unsafe as Unsafe
 
 import qualified GI.WebKit2 as WK
 
 import JSON
+import Util
 
 data GValue
   = GValueNull
@@ -227,15 +229,15 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configDatabase'           .<- "database"
   configUserAgent'          .<~ "user-agent" $ const parseSome
   configSettings'           .<~ "settings" $ \s -> fmap (`HM.union` s) . parseJSON
-  configStyleSheet'         .<~ "style-sheet" $ const parseSome
-  configScript'             .<~ "script" $ const parseSome
+  configStyleSheet'         .<~ "style-sheet" $ const $ fmap (fmap dir) . parseSome
+  configScript'             .<~ "script"      $ const $ fmap (fmap dir) . parseSome
   configDataDirectory'      .<~ "data-directory" $ const $ \case
     J.Bool False -> return Nothing
     J.Bool True  -> return $ Just $ dropExtension conffile
-    x -> parseJSON x
-  configCacheDirectory'     .<- "cache-directory"
+    x -> parsePath x
+  configCacheDirectory'     .<~ "cache-directory" $ const parsePath
   modifyObject $ \c -> c{ configCookieFile = (</> "cookies.txt") <$> configDataDirectory c }
-  configCookieFile'         .<- "cookie-file"
+  configCookieFile'         .<~ "cookie-file"     $ const parsePath
   modifyObject $ \c -> c{ configCookieAcceptPolicy = maybe WK.CookieAcceptPolicyNever (const WK.CookieAcceptPolicyNoThirdParty) $ configCookieFile c }
   configCookieAcceptPolicy' .<- "cookie-accept-policy"
   configCacheModel'         .<- "cache-model"
@@ -249,28 +251,38 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configZoomLevel'          .<- "zoom-level"
   configURI'                .<- "uri"
   configPrivateMode'        .<- "private-mode"
+  where
+  dir = (takeDirectory conffile </>)
+  parsePath = fmap (fmap dir) . parseJSON
 
 instance J.FromJSON Config where
   parseJSON = parseConfig def ""
 
-parseConfigFile :: Config -> FilePath -> IO Config
-parseConfigFile initconf conffile =
-  either fail return
-    . (J.parseEither (parseConfig initconf conffile) =<<) 
-    =<< (case takeExtension conffile of
-      ".json" -> fmap J.eitherDecodeStrict . BSC.readFile
-      ".yaml" -> yaml
-      ".yml" -> yaml
-      _ -> yaml . (<.> "yaml"))
-      conffile
+loadConfigFile :: Config -> FilePath -> IO Config
+loadConfigFile initconf conffile =
+  maybe (return initconf)
+    (either fail return
+      . (J.parseEither (parseConfig initconf conffile) =<<))
+    =<< case takeExtension conffile of
+      ".json" -> json conffile
+      ".yaml" -> yaml conffile
+      ".yml"  -> yaml conffile
+      f -> ife yaml (f <.> "yaml")
+         $ ife json (f <.> "json") 
+         $ ife yaml f
+         $ return Nothing
   where
-  yaml = fmap (left show) . Y.decodeFileEither
+  json = fmap (fmap J.eitherDecodeStrict) . catchDoesNotExist . BSC.readFile
+  yaml = fmap (fmap (left show) . yamldne) . Y.decodeFileEither
+  yamldne (Left (Y.InvalidYaml (Just (Y.YamlException e))))
+    | "Yaml file not found: " `isPrefixOf` e = Nothing
+  yamldne r = Just r
+  ife l f o = do
+    e <- doesFileExist f
+    if e then l f else o
 
 baseConfigFile :: FilePath
 baseConfigFile = "config"
 
-baseConfig :: IO Config
-baseConfig = parseConfigFile def baseConfigFile
-
 useTPGConfig :: TH.DecsQ
-useTPGConfig = maybe (return []) useTPGDatabase . configDatabase =<< TH.runIO baseConfig
+useTPGConfig = maybe (return []) useTPGDatabase . configDatabase =<< TH.runIO (loadConfigFile def baseConfigFile)

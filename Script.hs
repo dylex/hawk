@@ -17,7 +17,7 @@ import qualified Data.Text.Lazy.Builder as TLB
 import qualified GI.Gio as Gio
 import qualified GI.WebKit2 as WK
 
-import JSON (mintersperse)
+import Util
 import Types
 import UI
 

@@ -8,7 +8,7 @@ copyright:      2018
 license:        BSD3
 build-type:     Custom
 cabal-version:  >= 1.24
-data-files:     hawk.css hawk.js
+data-files:     config.yaml hawk.css hawk.js
 
 source-repository head
   type: git
@@ -61,3 +61,4 @@ executable hawk
     Script
     Types
     UI
+    Util

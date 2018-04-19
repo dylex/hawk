@@ -3,6 +3,7 @@
 module Main (main) where
 
 import           Control.Monad (foldM)
+import           Data.Default (def)
 import qualified Data.GI.Base as G
 import qualified Data.Text as T
 import qualified System.Console.GetOpt as GetOpt
@@ -13,6 +14,7 @@ import           System.IO (hPutStrLn, stderr)
 
 import qualified GI.Gtk as Gtk
 
+import Paths_hawk (getDataFileName)
 import Types
 import Config
 import Open
@@ -20,11 +22,11 @@ import Open
 optDescrs :: [GetOpt.OptDescr (Config -> IO Config)]
 optDescrs =
   [ GetOpt.Option "c" ["config"]
-    (GetOpt.ReqArg (flip parseConfigFile) "FILE")
-    "Use the given configuration file (relative to ~/.hawk)"
+    (GetOpt.ReqArg (flip loadConfigFile) "FILE")
+    "Load configuration file (relative to base)"
   , GetOpt.Option "n" ["no-database"]
     (GetOpt.NoArg (\c -> return c{ configDatabase = Nothing }))
-    "do not connect to a database"
+    "Do not connect to a database"
   ]
 
 optArgs :: String -> Config -> IO Config
@@ -34,9 +36,13 @@ main :: IO ()
 main = do
   Just (prog:args) <- Gtk.init . Just . map T.pack =<< (:) <$> getProgName <*> getArgs
 
+  -- load system config
+  base <- loadConfigFile def =<< getDataFileName baseConfigFile
   global <- globalOpen
+
+  -- load user config
   setCurrentDirectory =<< getAppUserDataDirectory "hawk"
-  conf <- baseConfig
+  conf <- loadConfigFile base baseConfigFile
 
   config <- case GetOpt.getOpt (GetOpt.ReturnInOrder optArgs) optDescrs (map T.unpack args) of
     (o, [], []) -> foldM (flip ($)) conf o

@@ -1,8 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 module JSON
-  ( mintersperse
-  , defaultParse
+  ( defaultParse
   , parseJSON
   , (.<~)
   , (.<-)
@@ -19,13 +18,7 @@ import qualified Data.Aeson as J
 import qualified Data.Aeson.Internal as J ((<?>), JSONPathElement(Key))
 import qualified Data.Aeson.Types as J (Parser, parseEither, emptyObject)
 import qualified Data.HashMap.Strict as HM
-import           Data.Monoid ((<>))
 import qualified Data.Text as T
-
--- not really json-specific
-mintersperse :: Monoid m => m -> [m] -> m
-mintersperse _ [] = mempty
-mintersperse d (x:l) = x <> mconcat (map (d <>) l)
 
 defaultParse :: J.FromJSON a => a
 defaultParse = either error id $ J.parseEither parseJSON J.emptyObject
