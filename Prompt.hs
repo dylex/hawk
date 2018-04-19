@@ -4,6 +4,7 @@ module Prompt
 
 import           Control.Monad.Reader (ask)
 import qualified Data.GI.Base as G
+import           Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
 import qualified GI.Gtk as Gtk
@@ -11,15 +12,17 @@ import qualified GI.Gtk as Gtk
 import Types
 import UI
 
-prompt :: T.Text -> T.Text -> (T.Text -> HawkM ()) -> HawkM ()
-prompt p i f = do
+prompt :: T.Text -> Maybe Gtk.InputPurpose -> T.Text -> (T.Text -> HawkM ()) -> HawkM ()
+prompt p ip i f = do
   setStatusLeft p
   hawk <- ask
-  ent <- G.new Gtk.Entry
+  ent <- G.new Gtk.Entry $
     [ #halign G.:= Gtk.AlignStart
     , #hexpand G.:= True
+    , #widthChars G.:= 128
+    , #inputPurpose G.:= fromMaybe Gtk.InputPurposeFreeForm ip
+    , #text G.:= i
     ]
-  #setText ent i
   #packStart (hawkStatusBox hawk) ent True True 0
 
   modifyRef_ hawkBindings $ \bind ->

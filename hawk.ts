@@ -16,7 +16,10 @@ namespace __HaWK__ {
     },
     LINK: {
       def: true
-    }
+    },
+    IMG: {
+      def: true
+    },
   };
 
   type LoadedElement = HTMLElement&{src?:string};

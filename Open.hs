@@ -1,5 +1,8 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Open
   ( hawkOpen
@@ -7,12 +10,14 @@ module Open
   ) where
 
 import           Control.Monad (unless, forM, forM_)
+import           Data.Bits ((.&.))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
 import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
+import qualified Data.GI.Base.Attributes as GA
 import qualified Data.HashMap.Strict as HM
 import           Data.IORef (newIORef)
 import           Data.Maybe (isNothing)
@@ -21,6 +26,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Vector as V
 import           Database.PostgreSQL.Typed (pgConnect, pgDisconnect)
+import           GHC.TypeLits (KnownSymbol)
 import           System.FilePath (takeExtension)
 
 import qualified GI.Gtk as Gtk
@@ -171,6 +177,16 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   _ <- G.on hawkWebView (G.PropertyNotify #uri) $ \_ ->
     Gtk.labelSetText hawkStatusURI . fold =<< G.get hawkWebView #uri
+  _ <- G.on hawkWebView #mouseTargetChanged $ \targ _ -> do
+    ctx <- G.get targ #context
+    let chk b = ctx .&. fromIntegral (fromEnum b) /= 0
+        set :: (KnownSymbol attr, GA.AttrGetC info WK.HitTestResult attr T.Text) => GA.AttrLabelProxy attr -> IO ()
+        set p = #setText hawkStatusLeft =<< G.get targ p
+    if
+      | chk WK.HitTestResultContextLink  -> set #linkUri
+      | chk WK.HitTestResultContextImage -> set #imageUri
+      | chk WK.HitTestResultContextMedia -> set #mediaUri
+      | otherwise -> return ()
 
   hawkBindings <- newIORef def
   hawkStyleSheet <- newIORef undefined

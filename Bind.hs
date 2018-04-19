@@ -111,7 +111,7 @@ cookiesSave :: HawkM ()
 cookiesSave = do
   wv <- asks hawkWebView
   uri <- G.get wv #uri
-  prompt "save cookies for" (fold uri) $ saveCookies
+  prompt "save cookies for" (Just Gtk.InputPurposeUrl) (fold uri) $ saveCookies
 
 backForward :: Int32 -> HawkM ()
 backForward 0 = return ()
@@ -154,13 +154,13 @@ commandBinds = Map.fromList $
   , (([ctrl, mod1], 'c'), cookiesSave)
   , (([], 'r'), #reload =<< asks hawkWebView)
   , (([], 'R'), #reloadBypassCache =<< asks hawkWebView)
-  , (([], 'o'), prompt "goto" T.empty hawkGoto)
+  , (([], 'o'), prompt "goto" (Just Gtk.InputPurposeUrl) T.empty hawkGoto)
   , (([], 'e'), backForward . maybe (-1) (negate . fromIntegral) =<< countMaybe)
   , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)
   , (([], 'i'), passThruBind)
   , (([], 'I'), inspector)
   , (([], 'Q'), hawkClose)
-  , (([], 'J'), prompt "js" T.empty runScript)
+  , (([], 'J'), prompt "js" Nothing T.empty runScript)
   , (([], 'z'), #stopLoading =<< asks hawkWebView)
   ] where
   mod1 = Gdk.ModifierTypeMod1Mask
