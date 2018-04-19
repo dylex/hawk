@@ -1,3 +1,5 @@
+-- Requires http://github.com/dylex/pguri
+
 CREATE SCHEMA hawk;
 
 CREATE TABLE hawk.browse (

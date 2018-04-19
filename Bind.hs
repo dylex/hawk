@@ -129,8 +129,7 @@ backForward 1 = #goForward =<< asks hawkWebView
 backForward n = do
   wv <- asks hawkWebView
   bf <- #getBackForwardList wv
-  i <- #getNthItem bf n
-  #goToBackForwardListItem wv i
+  mapM_ (#goToBackForwardListItem wv) =<< #getNthItem bf n
 
 inspector :: HawkM ()
 inspector = do

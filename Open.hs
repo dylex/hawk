@@ -137,11 +137,9 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   #setCacheModel hawkWebContext configCacheModel
   #setWebProcessCountLimit hawkWebContext configProcessCountLimit
-  {- haskell-gi #154
   forM_ configProxy $ \p ->
     #setNetworkProxySettings hawkWebContext WK.NetworkProxyModeCustom . Just
-      =<< WK.networkProxySettingsNew (Just p) configProxyIgnore
-  -}
+      =<< WK.networkProxySettingsNew (Just p) (Just configProxyIgnore)
   #setSpellCheckingEnabled hawkWebContext configSpellChecking
   #setProcessModel hawkWebContext configProcessModel
 
