@@ -46,15 +46,6 @@ commandMode = do
   setStatusLeft T.empty
   writeRef hawkBindings def
 
-rawMode :: HawkM ()
-rawMode = do
-  css <- asks hawkStatusStyle
-  #loadFromData css "*{background-color:#000;}"
-  modifyRef_ hawkBindings $ \bind ->
-    PassThru $ do
-      #loadFromData css "*{}"
-      return bind
-
 paste :: (T.Text -> HawkM ()) -> HawkM ()
 paste f = do
   sel <- Gtk.clipboardGet {- Gdk.SELECTION_PRIMARY: wrapPtr Gdk.Atom (intPtrToPtr 1) -} =<< Gdk.atomInternStaticString "PRIMARY"
@@ -166,7 +157,7 @@ commandBinds = Map.fromList $
   , (([], 'o'), prompt "goto" T.empty hawkGoto)
   , (([], 'e'), backForward . maybe (-1) (negate . fromIntegral) =<< countMaybe)
   , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)
-  , (([], 'i'), rawMode)
+  , (([], 'i'), passThruBind)
   , (([], 'I'), inspector)
   , (([], 'Q'), hawkClose)
   , (([], 'J'), prompt "js" T.empty runScript)

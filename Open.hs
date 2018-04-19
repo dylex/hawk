@@ -33,6 +33,7 @@ import Config
 import Cookies
 import Bind
 import UI
+import Script
 
 setStyle :: Gtk.IsWidget w => w -> BS.ByteString -> IO Gtk.CssProvider
 setStyle obj rules = do
@@ -176,13 +177,18 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   hawkPrivateMode <- newIORef configPrivateMode
 
   let hawk = Hawk{..}
+      run = runHawkM hawk
 
-  runHawkM hawk $ do
+  run $ do
     loadStyleSheet 0
     loadCookies
     mapM_ hawkGoto configURI
 
-  _ <- G.on hawkWindow #keyPressEvent $ runHawkM hawk . runBind
+  _ <- G.on hawkWindow #keyPressEvent $ run . runBind
+
+  -- TODO: add signal detail
+  _ <- G.on hawkUserContentManager #scriptMessageReceived $ run . scriptMessageHandler
+  True <- #registerScriptMessageHandler hawkUserContentManager "hawk"
 
   #showAll hawkWindow
 

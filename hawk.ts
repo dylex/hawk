@@ -36,10 +36,11 @@ namespace __HaWK__ {
   }
 
   function initDocument(doc: HTMLDocument) {
+    /* maybe should be click: */
     doc.addEventListener('focusin', function focusin(event) {
       if (event.target instanceof HTMLInputElement && (event.target.type === 'text' || event.target.type === 'password') || 
           event.target instanceof HTMLTextAreaElement) {
-        console.log('TODO: insert');
+        (<any>window).webkit.messageHandlers.hawk.postMessage('input');
       }
     }, false);
     doc.addEventListener('beforeload', function beforeload(event) {

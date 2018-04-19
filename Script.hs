@@ -2,6 +2,7 @@ module Script
   ( JSValue(..)
   , runScript
   , linkSelect
+  , scriptMessageHandler
   ) where
 
 import           Control.Monad.Reader (asks)
@@ -14,9 +15,11 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
 
 import qualified GI.Gio as Gio
+import qualified GI.WebKit2 as WK
 
 import JSON (mintersperse)
 import Types
+import UI
 
 scriptModule :: IsString s => s
 scriptModule = "__HaWK__"
@@ -55,3 +58,6 @@ callScript fun args = runScriptBuilder $
 linkSelect :: T.Text -> T.Text -> HawkM ()
 linkSelect t r = callScript "linkSelect" [JSON (J.String t), JSRegExp r True]
 
+scriptMessageHandler :: WK.JavascriptResult -> HawkM ()
+scriptMessageHandler _arg =
+  passThruBind

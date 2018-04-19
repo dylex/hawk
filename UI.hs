@@ -3,6 +3,7 @@ module UI
   , hawkGoto
   , setStatusLeft
   , loadStyleSheet
+  , passThruBind
   ) where
 
 import           Control.Monad.Reader (asks)
@@ -37,3 +38,14 @@ loadStyleSheet i = do
     (                             writeRef hawkStyleSheet (-1))
     (\s -> #addStyleSheet cm s >> writeRef hawkStyleSheet i)
     $ css V.!? i
+
+passThruBind :: HawkM ()
+passThruBind = do
+  css <- asks hawkStatusStyle
+  #loadFromData css "*{background-color:#000;}"
+  modifyRef_ hawkBindings $ \bind ->
+    case bind of
+      PassThru{} -> bind
+      _ -> PassThru $ do
+        #loadFromData css "*{}"
+        return bind
