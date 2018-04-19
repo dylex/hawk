@@ -29,10 +29,17 @@ import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
 
 import Types
+import Config
 import Prompt
 import Cookies
 import Script
 import UI
+
+commandMode :: HawkM ()
+commandMode = do
+  _ <- countMaybe
+  setStatusLeft T.empty
+  writeRef hawkBindings def
 
 settingStatus :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, Show a) => GA.AttrLabelProxy attr -> HawkM ()
 settingStatus attr = do
@@ -40,11 +47,12 @@ settingStatus attr = do
   x <- G.get sets attr
   setStatusLeft $ T.pack $ symbolVal attr ++ " " ++ show x
 
-commandMode :: HawkM ()
-commandMode = do
-  _ <- countMaybe
-  setStatusLeft T.empty
-  writeRef hawkBindings def
+promptTextSetting :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr T.Text, GA.AttrSetC info WK.Settings attr T.Text) => GA.AttrLabelProxy attr -> HawkM ()
+promptTextSetting attr = do
+  sets <- askSettings
+  x <- G.get sets attr
+  prompt (T.pack $ symbolVal attr) Nothing x $ G.set sets . return . (attr G.:=)
+  settingStatus attr
 
 paste :: (T.Text -> HawkM ()) -> HawkM ()
 paste f = do
@@ -67,18 +75,30 @@ digit i = void $ modifyCount $ Just . (i+) . maybe 0 (10*)
 countMaybe :: HawkM (Maybe Word32)
 countMaybe = modifyCount (const Nothing)
 
-toggleOrCountSetting :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr Bool, GA.AttrSetC info WK.Settings attr Bool) => GA.AttrLabelProxy attr -> HawkM ()
-toggleOrCountSetting attr = do
-  sets <- askSettings
-  G.set sets . return . maybe (attr G.:~ not) ((attr G.:=) . (0 /=)) =<< countMaybe
-  settingStatus attr
-
 zoom :: (Double -> Double) -> HawkM ()
 zoom f = do
   wv <- asks hawkWebView
   G.set wv [#zoomLevel G.:~ f]
   x <- G.get wv #zoomLevel
   setStatusLeft $ T.pack $ "zoomLevel " ++ show x
+
+toggleSetting :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, GA.AttrSetC info WK.Settings attr a, Eq a, Show a) => GA.AttrLabelProxy attr -> V.Vector a -> HawkM ()
+toggleSetting attr opts = do
+  sets <- askSettings
+  i <- maybe
+    (maybe 0 succ . (`V.elemIndex` opts) <$> G.get sets attr)
+    (return . fromIntegral) =<< countMaybe
+  G.set sets [attr G.:= opts V.! (i `mod` V.length opts)]
+  settingStatus attr
+
+toggleSettingBool :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr Bool, GA.AttrSetC info WK.Settings attr Bool) => GA.AttrLabelProxy attr -> HawkM ()
+toggleSettingBool attr = toggleSetting attr $ V.enumFromTo False True
+
+toggleUserAgent :: HawkM ()
+toggleUserAgent = do
+  glob <- asksGlobal globalUserAgent
+  ua <- asksConfig configUserAgent
+  toggleSetting #userAgent $ V.cons glob ua
 
 toggleStyleSheet :: HawkM ()
 toggleStyleSheet = do
@@ -138,14 +158,14 @@ commandBinds = Map.fromList $
   ] ++
   [ (([], i + charToKey '0'), digit i) | i <- [0..9]
   ] ++ map (first (second charToKey))
-  [ (([], '@'), toggleOrCountSetting #enableCaretBrowsing)
-  , (([], '%'), toggleOrCountSetting #enableJavascript)
+  [ (([], '@'), toggleSettingBool #enableCaretBrowsing)
+  , (([], '%'), toggleSettingBool #enableJavascript)
   , (([], '&'), toggleStyleSheet)
-  , (([], '*'), toggleOrCountSetting #enableWebgl)
+  , (([], '*'), toggleSettingBool #enableWebgl)
   , (([], '['), linkSelect "prev" "\\bprev|^<")
   , (([], ']'), linkSelect "next" "\\bnext|^>")
   , (([], '='), zoom (const 1))
-  , (([mod1], '='), toggleOrCountSetting #zoomTextOnly)
+  , (([mod1], '='), toggleSettingBool #zoomTextOnly)
   , (([], '+'), zoom (0.1 +))
   , (([], '_'), zoom (subtract 0.1))
   , (([], 'p'), paste hawkGoto)
@@ -154,6 +174,8 @@ commandBinds = Map.fromList $
   , (([ctrl, mod1], 'c'), cookiesSave)
   , (([], 'r'), #reload =<< asks hawkWebView)
   , (([], 'R'), #reloadBypassCache =<< asks hawkWebView)
+  , (([mod1], 'a'), toggleUserAgent)
+  , (([mod1], 'A'), promptTextSetting #userAgent)
   , (([], 'o'), prompt "goto" (Just Gtk.InputPurposeUrl) T.empty hawkGoto)
   , (([], 'e'), backForward . maybe (-1) (negate . fromIntegral) =<< countMaybe)
   , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)

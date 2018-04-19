@@ -9,7 +9,7 @@ module Open
   , globalOpen
   ) where
 
-import           Control.Monad (unless, forM, forM_)
+import           Control.Monad (forM, forM_)
 import           Data.Bits ((.&.))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
@@ -24,7 +24,6 @@ import           Data.Maybe (isNothing)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import qualified Data.Vector as V
 import           Database.PostgreSQL.Typed (pgConnect, pgDisconnect)
 import           GHC.TypeLits (KnownSymbol)
 import           System.FilePath (takeExtension)

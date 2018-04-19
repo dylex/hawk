@@ -7,6 +7,7 @@ module Types
   , HawkM
   , runHawkM
   , asksGlobal
+  , asksConfig
   , askSettings
   , askWebContext
   , askUserContentManager
@@ -84,6 +85,9 @@ runHawkM = flip runReaderT
 
 asksGlobal :: (Global -> a) -> HawkM a
 asksGlobal = asks . (. hawkGlobal)
+
+asksConfig :: (Config -> a) -> HawkM a
+asksConfig = asks . (. hawkConfig)
 
 askSettings :: HawkM WK.Settings
 askSettings = #getSettings =<< asks hawkWebView
