@@ -6,13 +6,16 @@ author:         Dylan Simon
 maintainer:     dylan@dylex.net
 copyright:      2018
 license:        BSD3
-build-type:     Simple
-cabal-version:  >= 1.10
+build-type:     Custom
+cabal-version:  >= 1.24
 data-files:     hawk.css hawk.js
 
 source-repository head
   type: git
   location: https://github.com/dylex/hawk
+
+custom-setup
+  setup-depends: base, containers, Cabal
 
 executable hawk
   default-language: Haskell2010
