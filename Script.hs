@@ -1,5 +1,5 @@
 module Script
-  ( JSValue(..)
+  ( setPropertiesScript
   , runScript
   , linkSelect
   , scriptMessageHandler
@@ -7,7 +7,7 @@ module Script
 
 import           Control.Monad.Reader (asks)
 import qualified Data.Aeson as J
-import qualified Data.Aeson.Text as JT
+import qualified Data.HashMap.Strict as HM
 import           Data.Monoid ((<>))
 import           Data.String (IsString)
 import qualified Data.Text as T
@@ -17,35 +17,23 @@ import qualified Data.Text.Lazy.Builder as TLB
 import qualified GI.Gio as Gio
 import qualified GI.WebKit2 as WK
 
-import Util
 import Types
 import UI
+import JS
 
 scriptModule :: IsString s => s
-scriptModule = "__HaWK__"
+scriptModule = "_HaWK__"
 
 runScript :: T.Text -> HawkM ()
 runScript s = do
   wv <- asks hawkWebView
   #runJavascript wv s Gio.noCancellable Nothing
 
-data JSValue
-  = JSON !J.Value
-  | JSRegExp
-    { jsRegExpSource :: !T.Text
-    , jsRegExpIgnoreCase :: !Bool
-    -- TODO: flags
-    }
+setPropertiesBuilder :: HM.HashMap T.Text JSValue -> TLB.Builder
+setPropertiesBuilder = setObjPropertiesBuilder scriptModule
 
-instance J.FromJSON JSValue where
-  parseJSON = return . JSON
-
-buildJSValue :: JSValue -> TLB.Builder
-buildJSValue (JSON j) = JT.encodeToTextBuilder j
-buildJSValue r@JSRegExp{ jsRegExpSource = s } =
-  TLB.singleton '/' <> TLB.fromText (T.replace "/" "\\/" s) <> TLB.singleton '/' <> flags
-  where
-  flags = if jsRegExpIgnoreCase r then TLB.singleton 'i' else mempty
+setPropertiesScript :: HM.HashMap T.Text JSValue -> T.Text
+setPropertiesScript = TL.toStrict . TLB.toLazyText . setPropertiesBuilder
 
 runScriptBuilder :: TLB.Builder -> HawkM ()
 runScriptBuilder = runScript . TL.toStrict . TLB.toLazyText
@@ -53,7 +41,7 @@ runScriptBuilder = runScript . TL.toStrict . TLB.toLazyText
 callScript :: T.Text -> [JSValue] -> HawkM ()
 callScript fun args = runScriptBuilder $
   scriptModule <> TLB.singleton '.' <> TLB.fromText fun
-  <> TLB.singleton '(' <> mintersperse (TLB.singleton ',') (map buildJSValue args) <> TLB.singleton ')'
+  <> TLB.singleton '(' <> buildJSValues args <> TLB.singleton ')'
 
 linkSelect :: T.Text -> T.Text -> HawkM ()
 linkSelect t r = callScript "linkSelect" [JSON (J.String t), JSRegExp r True]

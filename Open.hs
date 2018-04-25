@@ -40,6 +40,7 @@ import Cookies
 import Bind
 import UI
 import Script
+import URI.Domain (domainSetRegExp)
 
 setStyle :: Gtk.IsWidget w => w -> BS.ByteString -> IO Gtk.CssProvider
 setStyle obj rules = do
@@ -125,6 +126,11 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
     WK.userStyleSheetNew d WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
 
   #addScript hawkUserContentManager globalScript
+  hawkScript <- WK.userScriptNew (setPropertiesScript $ HM.fromList
+    [ ("blockSrc", domainSetRegExp configBlockLoadSrc)
+    ]) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
+  #addScript hawkUserContentManager hawkScript
+
   forM_ configScript $ \f -> do
     d <- TIO.readFile f
     s <- WK.userScriptNew d WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing

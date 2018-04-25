@@ -46,6 +46,8 @@ import qualified GI.WebKit2 as WK
 
 import JSON
 import Util
+import qualified URI.PrefixMap as PM
+import URI.Domain (DomainSet)
 
 data GValue
   = GValueNull
@@ -92,7 +94,6 @@ type GObjectConfig = HM.HashMap String GValue
 
 data Config = Config
   { configDatabase :: !(Maybe PGDatabase)
-  , configUserAgent :: !(V.Vector T.Text)
 
   -- WebSettings
   , configSettings :: !GObjectConfig
@@ -122,7 +123,9 @@ data Config = Config
   , configURI :: !(Maybe T.Text)
 
   -- Hawk
+  , configUserAgent :: !(V.Vector T.Text)
   , configPrivateMode :: !Bool
+  , configBlockLoadSrc :: !DomainSet
   }
 
 Lens.makeLensesWith (Lens.lensField Lens..~ Lens.mappingNamer (return . (++ "'")) $ Lens.lensRules) ''Config
@@ -149,6 +152,7 @@ instance Default Config where
     , configZoomLevel = 1
     , configURI = Nothing
     , configPrivateMode = False
+    , configBlockLoadSrc = PM.empty
     }
 
 instance J.FromJSON PGDatabase where
@@ -227,7 +231,6 @@ parseSome v = getSome <$> parseJSON v
 parseConfig :: Config -> FilePath -> J.Value -> J.Parser Config
 parseConfig initconf conffile = parseObject initconf "config" $ do
   configDatabase'           .<- "database"
-  configUserAgent'          .<~ "user-agent" $ const parseSome
   configSettings'           .<~ "settings" $ \s -> fmap (`HM.union` s) . parseJSON
   configStyleSheet'         .<~ "style-sheet" $ const $ fmap (fmap dir) . parseSome
   configScript'             .<~ "script"      $ const $ fmap (fmap dir) . parseSome
@@ -250,7 +253,9 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configEditable'           .<- "editable"
   configZoomLevel'          .<- "zoom-level"
   configURI'                .<- "uri"
+  configUserAgent'          .<~ "user-agent" $ const parseSome
   configPrivateMode'        .<- "private-mode"
+  configBlockLoadSrc'       .<- "block-load-src"
   where
   dir = (takeDirectory conffile </>)
   parsePath = fmap (fmap dir) . parseJSON

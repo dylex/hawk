@@ -1,4 +1,4 @@
-namespace __HaWK__ {
+namespace _HaWK__ {
 
   type Block = {
     def: boolean,
@@ -22,6 +22,8 @@ namespace __HaWK__ {
     },
   };
 
+  export var blockSrc: RegExp|undefined;
+
   type LoadedElement = HTMLElement&{src?:string};
 
   function blockTest(type: string, src: string|undefined) {
@@ -31,6 +33,8 @@ namespace __HaWK__ {
       block = blocks.def;
     }
     let res = block.def;
+    if (!block.exc && res && blockSrc)
+      block.exc = blockSrc;
     if (src && block.exc && block.exc.test(src))
       res = !res;
     if (!res || res !== block.def)

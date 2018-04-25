@@ -29,6 +29,7 @@ executable hawk
     , data-default
     , directory
     , filepath
+    , hashable
     , lens
     , mtl
     , network
@@ -55,6 +56,7 @@ executable hawk
     Bind
     Config
     Cookies
+    JS
     JSON
     Open
     Prompt
@@ -62,3 +64,5 @@ executable hawk
     Types
     UI
     Util
+    URI.PrefixMap
+    URI.Domain
