@@ -10,6 +10,7 @@ module Open
   ) where
 
 import           Control.Monad (forM, forM_)
+import qualified Data.Aeson as J
 import           Data.Bits ((.&.))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
@@ -39,6 +40,7 @@ import Config
 import Cookies
 import Bind
 import UI
+import JS
 import Script
 import URI.Domain (domainSetRegExp)
 
@@ -127,7 +129,8 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   #addScript hawkUserContentManager globalScript
   hawkScript <- WK.userScriptNew (setPropertiesScript $ HM.fromList
-    [ ("blockSrc", domainSetRegExp configBlockLoadSrc)
+    [ ("block", JSON $ J.toJSON configBlockLoad)
+    , ("blockSrc", domainSetRegExp configBlockLoadSrc)
     ]) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
   #addScript hawkUserContentManager hawkScript
 
@@ -172,7 +175,8 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   _ <- G.after hawkWebView #close $ #destroy hawkWindow
 
-  _ <- G.on hawkWebView #loadChanged $ \ev ->
+  _ <- G.on hawkWebView #loadChanged $ \ev -> do
+    print ev
     Gtk.labelSetText hawkStatusLoad $ case ev of
       WK.LoadEventStarted -> "WAIT"
       WK.LoadEventRedirected -> "REDIR"

@@ -125,6 +125,7 @@ data Config = Config
   -- Hawk
   , configUserAgent :: !(V.Vector T.Text)
   , configPrivateMode :: !Bool
+  , configBlockLoad :: !(V.Vector T.Text)
   , configBlockLoadSrc :: !DomainSet
   }
 
@@ -152,6 +153,7 @@ instance Default Config where
     , configZoomLevel = 1
     , configURI = Nothing
     , configPrivateMode = False
+    , configBlockLoad = V.empty
     , configBlockLoadSrc = PM.empty
     }
 
@@ -255,6 +257,7 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configURI'                .<- "uri"
   configUserAgent'          .<~ "user-agent" $ const parseSome
   configPrivateMode'        .<- "private-mode"
+  configBlockLoad'          .<- "block-load"
   configBlockLoadSrc'       .<- "block-load-src"
   where
   dir = (takeDirectory conffile </>)

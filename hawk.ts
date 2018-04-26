@@ -1,48 +1,19 @@
 namespace _HaWK__ {
 
-  type Block = {
-    def: boolean,
-    exc?: RegExp
-  };
-
-  interface Blocks {
-    def: Block;
-    [type:string]: Block;
-  }
-
-  const blocks: Blocks = {
-    def: {
-      def: false
-    },
-    LINK: {
-      def: true
-    },
-    IMG: {
-      def: true
-    },
-  };
-
-  export var blockSrc: RegExp|undefined;
+  export var block: undefined|string[];
+  export var blockSrc: undefined|RegExp;
 
   type LoadedElement = HTMLElement&{src?:string};
 
-  function blockTest(type: string, src: string|undefined) {
-    let block = blocks[type/*.toUpperCase()*/];
-    if (!block) {
-      type += "<def>";
-      block = blocks.def;
-    }
-    let res = block.def;
-    if (!block.exc && res && blockSrc)
-      block.exc = blockSrc;
-    if (src && block.exc && block.exc.test(src))
-      res = !res;
-    if (!res || res !== block.def)
-      console.log((res ? "allowing" : "blocking") + " " + type + " " + src);
-    return res;
+  function blockTest(type: string, src: string|undefined): boolean {
+    let b = block ? block.includes(type) : false;
+    if (!b && blockSrc && src)
+      b = blockSrc.test(src);
+    console.log((b ? "blocking" : "allowing") + " " + type + " " + src);
+    return b;
   }
 
-  function initDocument(doc: HTMLDocument) {
+  function initDocument(doc: HTMLDocument): void {
     /* maybe should be click: */
     doc.addEventListener('focusin', function focusin(event) {
       if (event.target instanceof HTMLInputElement && (event.target.type === 'text' || event.target.type === 'password') || 
@@ -54,7 +25,7 @@ namespace _HaWK__ {
       const el = <LoadedElement>event.target;
       if (!(el instanceof HTMLElement))
         return;
-      if (!blockTest(el.tagName, el.src)) {
+      if (blockTest(el.tagName, el.src)) {
         event.preventDefault();
         if (el.parentNode)
           el.parentNode.removeChild(el);
@@ -72,12 +43,12 @@ namespace _HaWK__ {
 
   var linkSelected = -1;
 
-  function linkFocus(n: number) {
+  function linkFocus(n: number): void {
     linkSelected = n;
     links[n].focus();
   }
 
-  export function linkSelect(link: string, match: RegExp) {
+  export function linkSelect(link: string, match: RegExp): void {
     const el = document.querySelector('link[rel=' + link + ']');
     if (el instanceof HTMLLinkElement) {
       location.assign(el.href);
