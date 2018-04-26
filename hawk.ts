@@ -91,4 +91,6 @@ namespace _HaWK__ {
     }
     linkSelected = -1;
   }
+
+  console.log("hawk loaded");
 }

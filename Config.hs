@@ -272,9 +272,9 @@ loadConfigFile initconf conffile =
       ".json" -> json conffile
       ".yaml" -> yaml conffile
       ".yml"  -> yaml conffile
-      f -> ife yaml (f <.> "yaml")
-         $ ife json (f <.> "json") 
-         $ ife yaml f
+      _ -> ife yaml (conffile <.> "yaml")
+         $ ife json (conffile <.> "json")
+         $ ife yaml conffile
          $ return Nothing
   where
   json = fmap (fmap J.eitherDecodeStrict) . catchDoesNotExist . BSC.readFile
