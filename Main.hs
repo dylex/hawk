@@ -15,6 +15,7 @@ import           System.IO (hPutStrLn, stderr)
 import qualified GI.Gtk as Gtk
 
 import Paths_hawk (getDataFileName)
+import Util
 import Types
 import Config
 import Open
@@ -42,7 +43,7 @@ main = do
 
   -- load user config
   setCurrentDirectory =<< getAppUserDataDirectory "hawk"
-  conf <- loadConfigFile base baseConfigFile
+  conf <- fromDoesNotExist base $ loadConfigFile base baseConfigFile
 
   config <- case GetOpt.getOpt (GetOpt.ReturnInOrder optArgs) optDescrs (map T.unpack args) of
     (o, [], []) -> foldM (flip ($)) conf o

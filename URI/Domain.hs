@@ -65,6 +65,6 @@ domainSetRegExp :: DomainMap a -> JSValue
 domainSetRegExp m
   | PM.null m = JSON J.Null
   | otherwise = JSRegExp (domainRegExp $ T.intercalate (T.singleton '|') $ PM.foldTree df $ [] <$ m) True where
-  df d l = [quoteRegExp d <> fn l]
+  df d l = [fn l <> quoteRegExp d]
   fn [] = T.empty
   fn l = altRegExp l <> "\\."

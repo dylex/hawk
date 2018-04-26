@@ -98,7 +98,7 @@ loadCookiesTxt :: FilePath -> IO [Cookie]
 loadCookiesTxt f = do
   t <- getTime
   foldMap (mapMaybe (checkExpired t <=< parseCookieTxt) . BSC.lines)
-    <$> catchDoesNotExist (BS.readFile f)
+    <$> fromDoesNotExist Nothing (Just <$> BS.readFile f)
 
 saveCookiesTxt :: FilePath -> [Cookie] -> IO ()
 saveCookiesTxt f s = do

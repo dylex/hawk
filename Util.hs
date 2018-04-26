@@ -2,7 +2,7 @@ module Util
   ( mintersperse
   , justIf
   , foldMapA
-  , catchDoesNotExist
+  , fromDoesNotExist
   ) where
 
 import           Control.Exception (handleJust)
@@ -22,5 +22,5 @@ justIf f = find f . Identity
 foldMapA :: (Applicative f, Monoid m, Foldable t) => (a -> f m) -> t a -> f m
 foldMapA f = foldr (\a r -> mappend <$> f a <*> r) (pure mempty)
 
-catchDoesNotExist :: IO a -> IO (Maybe a)
-catchDoesNotExist = handleJust (guard . isDoesNotExistError) (const $ return Nothing) . fmap Just
+fromDoesNotExist :: a -> IO a -> IO a
+fromDoesNotExist d = handleJust (guard . isDoesNotExistError) (const $ return d)

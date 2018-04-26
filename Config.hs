@@ -40,12 +40,12 @@ import           Network (PortID(..))
 import           System.Environment (getEnv)
 import           System.Directory (doesFileExist, getXdgDirectory, XdgDirectory(XdgCache))
 import           System.FilePath ((</>), (<.>), dropExtension, takeExtension, takeDirectory)
+import           System.IO.Error (ioError, mkIOError, doesNotExistErrorType)
 import qualified System.IO.Unsafe as Unsafe
 
 import qualified GI.WebKit2 as WK
 
 import JSON
-import Util
 import qualified URI.PrefixMap as PM
 import URI.Domain (DomainSet)
 
@@ -265,23 +265,21 @@ instance J.FromJSON Config where
 
 loadConfigFile :: Config -> FilePath -> IO Config
 loadConfigFile initconf conffile =
-  maybe (return initconf)
-    (either fail return
-      . (J.parseEither (parseConfig initconf conffile) =<<))
+  either fail return
+    . (J.parseEither (parseConfig initconf conffile) =<<)
     =<< case takeExtension conffile of
       ".json" -> json conffile
       ".yaml" -> yaml conffile
       ".yml"  -> yaml conffile
       _ -> ife yaml (conffile <.> "yaml")
          $ ife json (conffile <.> "json")
-         $ ife yaml conffile
-         $ return Nothing
+         $ yaml conffile
   where
-  json = fmap (fmap J.eitherDecodeStrict) . catchDoesNotExist . BSC.readFile
-  yaml = fmap (fmap (left show) . yamldne) . Y.decodeFileEither
-  yamldne (Left (Y.InvalidYaml (Just (Y.YamlException e))))
-    | "Yaml file not found: " `isPrefixOf` e = Nothing
-  yamldne r = Just r
+  json f = J.eitherDecodeStrict <$> BSC.readFile f
+  yaml f = yamle f =<< Y.decodeFileEither f
+  yamle f (Left (Y.InvalidYaml (Just (Y.YamlException e))))
+    | "Yaml file not found: " `isPrefixOf` e = ioError $ mkIOError doesNotExistErrorType e Nothing (Just f)
+  yamle _ r = return $ left show r
   ife l f o = do
     e <- doesFileExist f
     if e then l f else o
