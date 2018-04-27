@@ -14,7 +14,6 @@ module Config
   ) where
 
 import           Control.Arrow (left)
-import qualified Control.Lens as Lens
 import           Control.Monad (MonadPlus, mzero)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Encoding as J (null_)
@@ -48,6 +47,7 @@ import qualified GI.WebKit2 as WK
 import JSON
 import qualified URI.PrefixMap as PM
 import URI.Domain (DomainSet)
+import Util
 
 data GValue
   = GValueNull
@@ -129,7 +129,7 @@ data Config = Config
   , configBlockLoadSrc :: !DomainSet
   }
 
-Lens.makeLensesWith (Lens.lensField Lens..~ Lens.mappingNamer (return . (++ "'")) $ Lens.lensRules) ''Config
+makeLenses' ''Config
 
 instance Default Config where
   def = Config
