@@ -3,7 +3,7 @@ namespace _HaWK__ {
   export var block: undefined|string[];
   export var blockSrc: undefined|RegExp;
 
-  type LoadedElement = HTMLElement&{src?:string};
+  type LoadedElement = HTMLElement&{src?:string,href?:string};
 
   function blockTest(type: string, src: string|undefined): boolean {
     let b = block ? block.includes(type) : false;
@@ -25,7 +25,7 @@ namespace _HaWK__ {
       const el = <LoadedElement>event.target;
       if (!(el instanceof HTMLElement))
         return;
-      if (blockTest(el.tagName, el.src)) {
+      if (blockTest(el.tagName, el.src || el.href)) {
         event.preventDefault();
         if (el.parentNode)
           el.parentNode.removeChild(el);

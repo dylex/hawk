@@ -18,6 +18,7 @@ import qualified Data.GI.Base.Attributes as GA
 import           Data.Int (Int32)
 import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
+import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32)
@@ -74,6 +75,11 @@ digit i = void $ modifyCount $ Just . (i+) . maybe 0 (10*)
 
 countMaybe :: HawkM (Maybe Word32)
 countMaybe = modifyCount (const Nothing)
+
+runScriptCount :: T.Text -> T.Text -> HawkM ()
+runScriptCount a b = do
+  n <- countMaybe
+  runScript $ a <> maybe "1" (T.pack . show) n <> b
 
 zoom :: (Double -> Double) -> HawkM ()
 zoom f = do
@@ -155,11 +161,22 @@ charToKey = fromIntegral . fromEnum
 commandBinds :: BindMap
 commandBinds = Map.fromList $ 
   [ (([], Gdk.KEY_Escape), commandMode)
+  , (([], Gdk.KEY_Up)       , runScriptCount "window.scrollBy(0,-20*" ")")
+  , (([], Gdk.KEY_Down)     , runScriptCount "window.scrollBy(0,+20*" ")")
+  , (([], Gdk.KEY_Left)     , runScriptCount "window.scrollBy(-20*" ",0)")
+  , (([], Gdk.KEY_Right)    , runScriptCount "window.scrollBy(+20*" ",0)")
+  , (([], Gdk.KEY_Page_Up)  , runScriptCount "window.scrollBy(0,-window.innerHeight*" ")")
+  , (([], Gdk.KEY_Page_Down), runScriptCount "window.scrollBy(0,+window.innerHeight*" ")")
+  , (([], Gdk.KEY_space)    , runScriptCount "window.scrollBy(0,window.innerHeight*" ")")
+  , (([], Gdk.KEY_Home)     , runScript "window.scrollTo({top:0})")
+  , (([], Gdk.KEY_End)      , runScript "window.scrollTo({top:document.body.scrollHeight})")
   ] ++
   [ (([], i + charToKey '0'), digit i) | i <- [0..9]
   ] ++ map (first (second charToKey))
   [ (([], '@'), toggleSettingBool #enableCaretBrowsing)
+  , (([], '$'), runScript "window.scrollTo({left:document.body.scrollWidth})")
   , (([], '%'), toggleSettingBool #enableJavascript)
+  , (([], '^'), runScript "window.scrollTo({left:0})")
   , (([], '&'), toggleStyleSheet)
   , (([], '*'), toggleSettingBool #enableWebgl)
   , (([], '['), linkSelect "prev" "\\bprev|^<")
@@ -169,6 +186,7 @@ commandBinds = Map.fromList $
   , (([], '+'), zoom (0.1 +))
   , (([], '_'), zoom (subtract 0.1))
   , (([], 'p'), paste hawkGoto)
+  , (([], 'G'),   runScript "window.scrollTo({top:document.body.scrollHeight})")
   , (([mod1], 'c'), toggleCookiePolicy)
   , (([ctrl, mod1], 'c'), cookiesSave)
   , (([], 'r'), #reload =<< asks hawkWebView)
@@ -180,6 +198,10 @@ commandBinds = Map.fromList $
   , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)
   , (([], 'i'), passThruBind)
   , (([], 'I'), inspector)
+  , (([], 'h'), runScriptCount "window.scrollBy(-20*" ",0)")
+  , (([], 't'), runScriptCount "window.scrollBy(0,+20*" ")")
+  , (([], 'n'), runScriptCount "window.scrollBy(0,-20*" ")")
+  , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
   , (([], 'Q'), hawkClose)
   , (([], 'J'), prompt "js" Nothing T.empty runScript)
   , (([], 'z'), #stopLoading =<< asks hawkWebView)
@@ -187,18 +209,19 @@ commandBinds = Map.fromList $
   mod1 = Gdk.ModifierTypeMod1Mask
   ctrl = Gdk.ModifierTypeControlMask
 
-bindings :: Bindings -> BindMap
-bindings Command{} = commandBinds
-bindings (PassThru r) = Map.singleton ([], Gdk.KEY_Escape) $
-  writeRef hawkBindings =<< r
-
 runBind :: Gdk.EventKey -> HawkM Bool
 runBind ev = do
-  bind <- bindings <$> readRef hawkBindings
+  bind <- readRef hawkBindings
   evt <- G.get ev #type
   ks <- G.get ev #state
   kv <- G.get ev #keyval
-  maybe
-    (return False)
-    ((<$) True . when (evt == Gdk.EventTypeKeyPress))
-    $ Map.lookup (ks \\ [Gdk.ModifierTypeShiftMask], kv) bind
+  let run f = True <$ when (evt == Gdk.EventTypeKeyPress) f
+  case bind of
+    Command{} ->
+      run $ Map.findWithDefault
+        (liftIO $ print (ks, kv))
+        (ks \\ [Gdk.ModifierTypeShiftMask], kv) commandBinds
+    PassThru r
+      | null ks && kv == Gdk.KEY_Escape ->
+        run $ writeRef hawkBindings =<< r
+      | otherwise -> return False
