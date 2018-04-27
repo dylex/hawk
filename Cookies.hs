@@ -173,10 +173,10 @@ getCookies uri f = do
 
 cookieStore :: HawkM (Maybe (Either PGConnection FilePath))
 cookieStore =
-  -- maybe
+  maybe
     (fmap Left <$> asks hawkDatabase)
-    -- (return . Just . Right)
-    -- =<< asks (configCookieFile . hawkConfig)
+    (const $ return Nothing) -- (return . Right)
+    =<< asks (configCookieFile . hawkConfig)
 
 loadCookies :: HawkM ()
 loadCookies =
