@@ -43,3 +43,39 @@ block-load-src:
   - doubleclick.net
   - facebook.net
   - thebrighttag.com
+uri-rewrite:
+  amg: http://www.allmusic.com/search/artist/
+  dd: https://duckduckgo.com/html/?kp=-1&kd=-1&q=
+  "": https://duckduckgo.com/html/?kp=-1&kd=-1&q=
+  dict: http://dictionary.reference.com/search?q=
+  g: https://www.google.com/search?q=
+  gi: https://www.google.com/search?tbm=isch&q=
+  gm: http://maps.google.com/maps?q=
+  gn: http://news.google.com/news?q=
+  gs: http://scholar.google.com/scholar?q=
+  hdb: http://hackage.haskell.org/package/
+  hoogle: http://haskell.org/hoogle/?q=
+  imdb: http://imdb.com/find?q=
+  math: http://mathworld.wolfram.com/search/?query=
+  netflix: http://www.netflix.com/Search?v1=
+  oed: http://127.0.0.1:31780/search?searchType=dictionary&q=
+  om: https://openstreetmap.org/?query=
+  rfc: http://tools.ietf.org/html/rfc
+  thes: http://thesaurus.reference.com/search?q=
+  trackdhl: http://track.dhl-usa.com/TrackByNbr.asp?ShipmentNumber=
+  trackfedex: http://www.fedex.com/cgi-bin/tracking?action=track&language=english&last_action=alttrack&ascend_header=1&cntry_code=us&initial=x&mps=y&tracknumbers=
+  trackups: http://wwwapps.ups.com/etracking/tracking.cgi?TypeOfInquiryNumber=T&track.x=0&track.y=0&InquiryNumber1=
+  trackusps: http://trkcnfrm1.smi.usps.com/PTSInternetWeb/InterLabelInquiry.do?origTrackNum=
+  urban: https://www.urbandictionary.com/define.php?term=
+  weather: http://classic.wunderground.com/cgi-bin/findweather/getForecast?query=
+  wiki: https://www.wikipedia.org/w/wiki.phtml?search=
+uri-alias:
+  amg: http://www.allmusic.com/
+  gc: http://google.com/calendar
+  gm: http://maps.google.com/
+  hdb: http://hackage.haskell.org/packages
+  imdb: http://imdb.com/
+  math: http://mathworld.wolfram.com/
+  netflix: http://dvd.netflix.com/Queue
+  om: http://openstreetmap.org/
+  radar: http://classic.wunderground.com/radar/radblast.asp?num=10&delay=50&noclutter=0&ID=JFK&type=TR0&showstorms=0&lightning=0&showlabels=0&rainsnow=1

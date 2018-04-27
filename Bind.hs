@@ -169,7 +169,6 @@ commandBinds = Map.fromList $
   , (([], '+'), zoom (0.1 +))
   , (([], '_'), zoom (subtract 0.1))
   , (([], 'p'), paste hawkGoto)
-  , (([], 'g'), hawkGoto "http://www.google.com/")
   , (([mod1], 'c'), toggleCookiePolicy)
   , (([ctrl, mod1], 'c'), cookiesSave)
   , (([], 'r'), #reload =<< asks hawkWebView)

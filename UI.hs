@@ -11,6 +11,7 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 
 import Types
+import URI.Expand
 
 hawkClose :: HawkM ()
 hawkClose = do
@@ -20,7 +21,7 @@ hawkClose = do
 hawkGoto :: T.Text -> HawkM ()
 hawkGoto url = do
   wv <- asks hawkWebView
-  #loadUri wv url
+  #loadUri wv =<< uriExpand url
 
 setStatusLeft :: T.Text -> HawkM ()
 setStatusLeft t = do

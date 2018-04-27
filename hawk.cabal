@@ -33,6 +33,7 @@ executable hawk
     , lens
     , mtl
     , network
+    , network-uri
     , postgresql-typed
     , process
     , scientific
@@ -66,3 +67,4 @@ executable hawk
     Util
     URI.PrefixMap
     URI.Domain
+    URI.Expand
