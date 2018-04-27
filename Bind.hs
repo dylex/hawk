@@ -73,6 +73,13 @@ modifyCount f = do
 digit :: Word32 -> HawkM ()
 digit i = void $ modifyCount $ Just . (i+) . maybe 0 (10*)
 
+zero :: HawkM ()
+zero = do
+  c <- readRef hawkBindings
+  case c of
+    Command{ commandCount = Nothing } -> runScript "window.scrollTo({top:0})"
+    _ -> digit 0
+
 countMaybe :: HawkM (Maybe Word32)
 countMaybe = modifyCount (const Nothing)
 
@@ -171,9 +178,10 @@ commandBinds = Map.fromList $
   , (([], Gdk.KEY_Home)     , runScript "window.scrollTo({top:0})")
   , (([], Gdk.KEY_End)      , runScript "window.scrollTo({top:document.body.scrollHeight})")
   ] ++
-  [ (([], i + charToKey '0'), digit i) | i <- [0..9]
+  [ (([], i + charToKey '0'), digit i) | i <- [1..9]
   ] ++ map (first (second charToKey))
-  [ (([], '@'), toggleSettingBool #enableCaretBrowsing)
+  [ (([], '0'), zero)
+  , (([], '@'), toggleSettingBool #enableCaretBrowsing)
   , (([], '$'), runScript "window.scrollTo({left:document.body.scrollWidth})")
   , (([], '%'), toggleSettingBool #enableJavascript)
   , (([], '^'), runScript "window.scrollTo({left:0})")
