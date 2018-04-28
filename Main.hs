@@ -4,6 +4,7 @@ module Main (main) where
 
 import           Control.Monad (foldM)
 import           Data.Default (def)
+import           Data.Function ((&))
 import qualified Data.GI.Base as G
 import qualified Data.Text as T
 import qualified System.Console.GetOpt as GetOpt
@@ -46,7 +47,7 @@ main = do
   conf <- fromDoesNotExist base $ loadConfigFile base baseConfigFile
 
   config <- case GetOpt.getOpt (GetOpt.ReturnInOrder optArgs) optDescrs (map T.unpack args) of
-    (o, [], []) -> foldM (flip ($)) conf o
+    (o, [], []) -> foldM (&) conf o
     (_, _, err) -> do
       mapM_ (hPutStrLn stderr) err
       hPutStrLn stderr $ GetOpt.usageInfo (T.unpack prog ++ " [OPTIONS] [URI]") optDescrs

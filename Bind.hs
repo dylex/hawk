@@ -7,12 +7,13 @@ module Bind
   ( runBind
   ) where
 
-import           Control.Arrow (first, second, (&&&))
+import           Control.Arrow (first, second)
 import           Control.Monad (void, when)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ask, asks)
 import           Data.Default (def)
 import           Data.Foldable (fold)
+import           Data.Function (on)
 import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
 import           Data.Int (Int32)
@@ -114,13 +115,8 @@ toggleUserAgent = do
   toggleSetting #userAgent $ V.cons glob ua
 
 toggleStyleSheet :: HawkM ()
-toggleStyleSheet = do
-  css <- asks hawkStyleSheets
-  i <- modifyRef hawkStyleSheet $
-    id &&& id . (`mod` V.length css) . succ
-  usercm <- askUserContentManager
-  #removeAllStyleSheets usercm
-  #addStyleSheet usercm $ css V.! i
+toggleStyleSheet =
+  loadStyleSheet . maybe (flip $ on mod succ) (const . const . pred . fromIntegral) =<< countMaybe
 
 toggleCookiePolicy :: HawkM ()
 toggleCookiePolicy = do
@@ -181,6 +177,7 @@ commandBinds = Map.fromList $
   [ (([], i + charToKey '0'), digit i) | i <- [1..9]
   ] ++ map (first (second charToKey))
   [ (([], '0'), zero)
+  , (([], ')'), digit 0)
   , (([], '@'), toggleSettingBool #enableCaretBrowsing)
   , (([], '$'), runScript "window.scrollTo({left:document.body.scrollWidth})")
   , (([], '%'), toggleSettingBool #enableJavascript)
@@ -212,6 +209,7 @@ commandBinds = Map.fromList $
   , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
   , (([], 'Q'), hawkClose)
   , (([], 'J'), prompt "js" Nothing T.empty runScript)
+  , (([], 'm'), hawkGoto "hawk:marks")
   , (([], 'z'), #stopLoading =<< asks hawkWebView)
   ] where
   mod1 = Gdk.ModifierTypeMod1Mask

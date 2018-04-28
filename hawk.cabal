@@ -24,6 +24,7 @@ executable hawk
   build-depends:
       base >=4.7 && <5
     , aeson
+    , blaze-html
     , bytestring
     , containers
     , data-default
@@ -57,6 +58,7 @@ executable hawk
     Bind
     Config
     Cookies
+    Database
     JS
     JSON
     Open
@@ -68,3 +70,4 @@ executable hawk
     URI.PrefixMap
     URI.Domain
     URI.Expand
+    URI.Hawk

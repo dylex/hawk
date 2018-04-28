@@ -31,7 +31,7 @@ CREATE TABLE hawk.mark (
 	id	serial PRIMARY KEY,
 	uri	uri UNIQUE NOT NULL,
 	follow	boolean NOT NULL,
-	browse	integer REFERENCES hawk.browse
+	browse	integer REFERENCES hawk.browse ON DELETE SET NULL
 );
 CREATE INDEX mark_domain_idx ON hawk.mark (((uri).domain));
 

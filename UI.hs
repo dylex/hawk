@@ -28,11 +28,12 @@ setStatusLeft t = do
   stat <- asks hawkStatusLeft
   #setText stat t
 
-loadStyleSheet :: Int -> HawkM ()
-loadStyleSheet i = do
+loadStyleSheet :: (Int -> Int -> Int) -> HawkM ()
+loadStyleSheet f = do
   cm <- askUserContentManager
   glob <- asksGlobal globalStyleSheet
   css <- asks hawkStyleSheets
+  i <- f (V.length css) <$> readRef hawkStyleSheet
   #removeAllStyleSheets cm
   #addStyleSheet cm glob
   maybe

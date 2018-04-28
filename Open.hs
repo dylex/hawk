@@ -43,6 +43,7 @@ import UI
 import JS
 import Script
 import URI.Domain (domainSetRegExp)
+import URI.Hawk
 
 setStyle :: Gtk.IsWidget w => w -> BS.ByteString -> IO Gtk.CssProvider
 setStyle obj rules = do
@@ -208,17 +209,16 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   let hawk = Hawk{..}
       run = runHawkM hawk
 
-  run $ do
-    loadStyleSheet 0
-    loadCookies
-    mapM_ hawkGoto configURI
-
+  #registerUriScheme hawkWebContext "hawk" $ run . hawkURIScheme
   _ <- G.on hawkWindow #keyPressEvent $ run . runBind
-
-  -- TODO: add signal detail
+  -- TODO: add signal detail haskell-gi #158
   _ <- G.on hawkUserContentManager #scriptMessageReceived $ run . scriptMessageHandler
   True <- #registerScriptMessageHandler hawkUserContentManager "hawk"
 
-  #showAll hawkWindow
+  run $ do
+    loadStyleSheet $ \_ _ -> 0
+    loadCookies
+    mapM_ hawkGoto configURI
 
+  #showAll hawkWindow
   return hawk
