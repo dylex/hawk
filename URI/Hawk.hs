@@ -25,6 +25,7 @@ import qualified GI.Gio as Gio
 import Types
 import Config
 import Database
+import URI ()
 
 useTPGConfig
 
@@ -52,7 +53,7 @@ hawkURIScheme req = do
   path <- #getPath req
   h <- case path of
     "marks" -> (H.head (H.title "Marks") <>) . H.body . listBrowse <$>
-      hawkQuery [pgSQL|!SELECT COALESCE(browse.uri, mark.uri)::text, browse.title, browse.last
+      hawkDBQuery [pgSQL|!SELECT COALESCE(browse.uri, mark.uri), browse.title, browse.last
         FROM mark LEFT JOIN browse ON (mark.browse = browse.id)
         ORDER BY last DESC NULLS LAST|]
     _ -> return $ "404: " <> H.text path

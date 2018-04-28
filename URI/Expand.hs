@@ -8,21 +8,14 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (fromMaybe)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
-import           Network.URI (escapeURIChar)
 import           System.Directory (getHomeDirectory)
 
 import Types
 import Config
+import URI
 
 okInArg :: Char -> Bool
 okInArg c = isAlphaNum c || c `elem` ("!$'()*,/:" :: String)
-
-escapeURIChar' :: (Char -> Bool) -> Char -> String
-escapeURIChar' p ' ' | not (p ' ') = "+"
-escapeURIChar' p c = escapeURIChar p c
-
-escapeURI :: (Char -> Bool) -> T.Text -> T.Text
-escapeURI p = T.concatMap (T.pack . escapeURIChar' p)
 
 uriExpand :: T.Text -> HawkM T.Text
 uriExpand = expand . T.strip where

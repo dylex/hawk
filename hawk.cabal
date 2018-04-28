@@ -59,6 +59,7 @@ executable hawk
     Config
     Cookies
     Database
+    Event
     JS
     JSON
     Open
@@ -67,6 +68,7 @@ executable hawk
     Types
     UI
     Util
+    URI
     URI.PrefixMap
     URI.Domain
     URI.Expand

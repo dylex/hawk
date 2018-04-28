@@ -1,8 +1,4 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeFamilies #-}
 
 module Open
   ( hawkOpen
@@ -11,14 +7,12 @@ module Open
 
 import           Control.Monad (forM, forM_)
 import qualified Data.Aeson as J
-import           Data.Bits ((.&.))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
 import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
-import qualified Data.GI.Base.Attributes as GA
 import qualified Data.HashMap.Strict as HM
 import           Data.IORef (newIORef)
 import           Data.Maybe (isNothing)
@@ -26,7 +20,6 @@ import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import           Database.PostgreSQL.Typed (pgConnect, pgDisconnect)
-import           GHC.TypeLits (KnownSymbol)
 import           System.FilePath (takeExtension)
 import qualified System.Info as SI
 
@@ -44,6 +37,7 @@ import JS
 import Script
 import URI.Domain (domainSetRegExp)
 import URI.Hawk
+import Event
 
 setStyle :: Gtk.IsWidget w => w -> BS.ByteString -> IO Gtk.CssProvider
 setStyle obj rules = do
@@ -174,16 +168,23 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   #setCustomCharset hawkWebView configCharset
   #packStart hawkTopBox hawkWebView True True 0
 
+  hawkBindings <- newIORef def
+  hawkStyleSheet <- newIORef undefined
+  hawkPrivateMode <- newIORef configPrivateMode
+
+  let hawk = Hawk{..}
+      run = runHawkM hawk
+
   _ <- G.after hawkWebView #close $ #destroy hawkWindow
 
   _ <- G.on hawkWebView #loadChanged $ \ev -> do
     print ev
-    Gtk.labelSetText hawkStatusLoad $ case ev of
-      WK.LoadEventStarted -> "WAIT"
-      WK.LoadEventRedirected -> "REDIR"
-      WK.LoadEventCommitted -> "RECV"
-      WK.LoadEventFinished -> ""
-      (WK.AnotherLoadEvent x) -> T.pack $ show x
+    Gtk.labelSetText hawkStatusLoad =<< case ev of
+      WK.LoadEventStarted -> return "WAIT"
+      WK.LoadEventRedirected -> return "REDIR"
+      WK.LoadEventCommitted -> return "RECV"
+      WK.LoadEventFinished -> "" <$ run loadFinished
+      (WK.AnotherLoadEvent x) -> return $ T.pack $ show x
 
   _ <- G.on hawkWebView (G.PropertyNotify #estimatedLoadProgress) $ \_ -> do
     p <- G.get hawkWebView #estimatedLoadProgress
@@ -191,23 +192,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   _ <- G.on hawkWebView (G.PropertyNotify #uri) $ \_ ->
     Gtk.labelSetText hawkStatusURI . fold =<< G.get hawkWebView #uri
-  _ <- G.on hawkWebView #mouseTargetChanged $ \targ _ -> do
-    ctx <- G.get targ #context
-    let chk b = ctx .&. fromIntegral (fromEnum b) /= 0
-        set :: (KnownSymbol attr, GA.AttrGetC info WK.HitTestResult attr T.Text) => GA.AttrLabelProxy attr -> IO ()
-        set p = #setText hawkStatusLeft =<< G.get targ p
-    if
-      | chk WK.HitTestResultContextLink  -> set #linkUri
-      | chk WK.HitTestResultContextImage -> set #imageUri
-      | chk WK.HitTestResultContextMedia -> set #mediaUri
-      | otherwise -> return ()
-
-  hawkBindings <- newIORef def
-  hawkStyleSheet <- newIORef undefined
-  hawkPrivateMode <- newIORef configPrivateMode
-
-  let hawk = Hawk{..}
-      run = runHawkM hawk
+  _ <- G.on hawkWebView #mouseTargetChanged $ (.) run . targetChanged
 
   #registerUriScheme hawkWebContext "hawk" $ run . hawkURIScheme
   _ <- G.on hawkWindow #keyPressEvent $ run . runBind

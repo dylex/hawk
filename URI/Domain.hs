@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module URI.Domain
   ( Domain(..)
@@ -43,7 +44,6 @@ instance J.FromJSON Domain where
 
 instance PG.PGType "domainname" where
   type PGVal "domainname" = Domain
-  -- pgBinaryColumn _ _ = True
 instance PG.PGParameter "domainname" Domain where
   pgEncode _ = TE.encodeUtf8 . joinDomain
 instance PG.PGColumn "domainname" Domain where
