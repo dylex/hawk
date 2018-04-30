@@ -8,6 +8,7 @@ module URI.PrefixMap
   , insert
   , delete
   , alter
+  , union
   , lookup
   , lookupPrefix
   , filter
@@ -25,12 +26,14 @@ import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as M
 import           Data.Monoid ((<>))
 
+import Util
+
 type Key k = (Eq k, Hashable k)
 
 -- |A map in which each key is a list and no key is a prefix of any other key.
 data PrefixMap k a
-  = Leaf a
-  | Node (M.HashMap k (PrefixMap k a))
+  = Leaf !a
+  | Node !(M.HashMap k (PrefixMap k a))
   deriving (Show)
 
 instance Functor (PrefixMap k) where
@@ -50,8 +53,7 @@ null (Node m) = M.null m
 null _ = False
 
 nonull :: PrefixMap k a -> Maybe (PrefixMap k a)
-nonull (Node m) | M.null m = Nothing
-nonull d = Just d
+nonull = justIf (not . null)
 
 singleton :: Key k => [k] -> a -> PrefixMap k a
 singleton [] = Leaf

@@ -35,7 +35,8 @@ import Bind
 import UI
 import JS
 import Script
-import URI.Domain (domainSetRegExp)
+import URI.Domain (domainPSetRegExp)
+import qualified URI.ListMap as LM
 import URI.Hawk
 import Event
 
@@ -125,7 +126,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   #addScript hawkUserContentManager globalScript
   hawkScript <- WK.userScriptNew (setPropertiesScript $ HM.fromList
     [ ("block", JSON $ J.toJSON configBlockLoad)
-    , ("blockSrc", domainSetRegExp configBlockLoadSrc)
+    , ("blockSrc", domainPSetRegExp configBlockLoadSrc)
     ]) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
   #addScript hawkUserContentManager hawkScript
 
@@ -147,7 +148,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
       ".txt" -> WK.CookiePersistentStorageText
       "" -> WK.CookiePersistentStorageText
       _ -> WK.CookiePersistentStorageSqlite)
-  #setAcceptPolicy hawkCookieManager configCookieAcceptPolicy
+  mapM_ (#setAcceptPolicy hawkCookieManager) $ LM.lookup [] configCookieAcceptPolicy
 
   #setCacheModel hawkWebContext configCacheModel
   #setWebProcessCountLimit hawkWebContext configProcessCountLimit
@@ -180,8 +181,8 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   _ <- G.on hawkWebView #loadChanged $ \ev -> do
     print ev
     Gtk.labelSetText hawkStatusLoad =<< case ev of
-      WK.LoadEventStarted -> return "WAIT"
-      WK.LoadEventRedirected -> return "REDIR"
+      WK.LoadEventStarted -> "WAIT" <$ run loadStarted
+      WK.LoadEventRedirected -> "REDIR" <$ run loadStarted
       WK.LoadEventCommitted -> return "RECV"
       WK.LoadEventFinished -> "" <$ run loadFinished
       (WK.AnotherLoadEvent x) -> return $ T.pack $ show x

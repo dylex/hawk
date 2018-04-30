@@ -7,11 +7,13 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Event
-  ( loadFinished
+  ( loadStarted
+  , loadFinished
   , targetChanged
   ) where
 
 import           Control.Monad (unless, when)
+import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (asks)
 import           Data.Bits ((.&.))
 import qualified Data.GI.Base as G
@@ -27,9 +29,22 @@ import qualified GI.WebKit2 as WK
 import Types
 import Config
 import Database
-import URI ()
+import URI
+import URI.Domain
+import qualified URI.ListMap as LM
 
 useTPGConfig
+
+loadStarted :: HawkM ()
+loadStarted = do
+  wv <- asks hawkWebView
+  uri <- G.get wv #uri
+  cm <- askCookieManager
+  conf <- asksConfig configCookieAcceptPolicy
+  let dom = uriDomain =<< uri
+      pol = LM.lookupPrefix (maybe [] domainComponents dom) conf
+  liftIO $ print (dom, pol)
+  mapM_ (#setAcceptPolicy cm) pol
 
 loadFinished :: HawkM ()
 loadFinished = do

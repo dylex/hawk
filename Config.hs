@@ -45,8 +45,9 @@ import qualified System.IO.Unsafe as Unsafe
 import qualified GI.WebKit2 as WK
 
 import JSON
+import qualified URI.ListMap as LM
 import qualified URI.PrefixMap as PM
-import URI.Domain (DomainSet)
+import URI.Domain (DomainPSet, DomainMap)
 import Util
 
 data GValue
@@ -106,7 +107,7 @@ data Config = Config
   , configDataDirectory :: !(Maybe FilePath)
   , configCacheDirectory :: !(Maybe FilePath)
   , configCookieFile :: !(Maybe FilePath)
-  , configCookieAcceptPolicy :: !WK.CookieAcceptPolicy
+  , configCookieAcceptPolicy :: !(DomainMap WK.CookieAcceptPolicy)
 
   -- WebContext
   , configCacheModel :: !WK.CacheModel
@@ -126,7 +127,7 @@ data Config = Config
   , configUserAgent :: !(V.Vector T.Text)
   , configPrivateMode :: !Bool
   , configBlockLoad :: !(V.Vector T.Text)
-  , configBlockLoadSrc :: !DomainSet
+  , configBlockLoadSrc :: !DomainPSet
   , configURIRewrite :: !(HM.HashMap T.Text T.Text)
   , configURIAlias :: !(HM.HashMap T.Text T.Text)
   }
@@ -143,7 +144,7 @@ instance Default Config where
     , configDataDirectory = Nothing
     , configCacheDirectory = Just $ Unsafe.unsafeDupablePerformIO $ getXdgDirectory XdgCache "hawk"
     , configCookieFile = Nothing
-    , configCookieAcceptPolicy = WK.CookieAcceptPolicyNever
+    , configCookieAcceptPolicy = LM.empty
     , configCacheModel = WK.CacheModelWebBrowser
     , configProcessCountLimit = 0
     , configProxy = Nothing
@@ -247,7 +248,7 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configCacheDirectory'     .<~ "cache-directory" $ const parsePath
   modifyObject $ \c -> c{ configCookieFile = (</> "cookies.txt") <$> configDataDirectory c }
   configCookieFile'         .<~ "cookie-file"     $ const parsePath
-  modifyObject $ \c -> c{ configCookieAcceptPolicy = maybe WK.CookieAcceptPolicyNever (const WK.CookieAcceptPolicyNoThirdParty) $ configCookieFile c }
+  -- modifyObject $ \c -> c{ configCookieAcceptPolicy = maybe WK.CookieAcceptPolicyNever (const WK.CookieAcceptPolicyNoThirdParty) $ configCookieFile c }
   configCookieAcceptPolicy' .<- "cookie-accept-policy"
   configCacheModel'         .<- "cache-model"
   configProcessCountLimit'  .<- "process-count-limit"

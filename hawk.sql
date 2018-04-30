@@ -18,10 +18,11 @@ DECLARE
 	t ALIAS FOR $2;
 	i INTEGER;
 BEGIN
-	INSERT INTO browse (uri, title) VALUES (u, t)
-		ON CONFLICT DO UPDATE SET visits = visits + 1, title = excluded.title, last = now()
+	INSERT INTO hawk.browse (uri, title) VALUES (u, t)
+		ON CONFLICT (uri) DO
+		UPDATE SET visits = browse.visits + excluded.visits, title = excluded.title, last = excluded.last
 		RETURNING id INTO i;
-	UPDATE mark SET browse = i WHERE uri = u OR follow AND uri @> u;
+	UPDATE hawk.mark SET browse = i WHERE uri = u OR follow AND uri @> u;
 	RETURN i;
 END;
 $$
@@ -42,8 +43,8 @@ DECLARE
 	f ALIAS FOR $2;
 	i INTEGER;
 BEGIN
-	SELECT id INTO i FROM browse WHERE uri = u OR f AND uri <@ u ORDER BY last DESC;
-	INSERT INTO mark (uri, follow, browse) VALUES (u, f, i) RETURNING id INTO i;
+	SELECT id INTO i FROM hawk.browse WHERE uri = u OR f AND uri <@ u ORDER BY last DESC;
+	INSERT INTO hawk.mark (uri, follow, browse) VALUES (u, f, i) RETURNING id INTO i;
 	RETURN i;
 END;
 $$
