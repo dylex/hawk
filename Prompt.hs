@@ -83,7 +83,8 @@ prompt Prompt{..} f = do
           ((, 0) <$> #getText ent)
           (return . second (if ks then pred else succ)) =<< readIORef ctr
         comp <- runHawkM hawk $ promptCompletion ct cn
-        #setText ent (fromMaybe ct comp)
+        #setText ent $ fromMaybe ct comp
+        #setPosition ent (-1)
         writeIORef ctr ((ct, cn) <$ comp)
         return True
       else

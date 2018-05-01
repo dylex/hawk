@@ -151,6 +151,9 @@ backForward n = do
   bf <- #getBackForwardList wv
   mapM_ (#goToBackForwardListItem wv) =<< #getNthItem bf n
 
+promptURL :: Maybe T.Text -> HawkM ()
+promptURL i = prompt def{ promptPrefix = "goto", promptPurpose = Gtk.InputPurposeUrl, promptInit = fold i, promptCompletion = completeURI } hawkGoto
+
 inspector :: HawkM ()
 inspector = do
   ins <- #getInspector =<< asks hawkWebView
@@ -198,7 +201,8 @@ commandBinds = Map.fromList $
   , (([], 'R'), #reloadBypassCache =<< asks hawkWebView)
   , (([mod1], 'a'), toggleUserAgent)
   , (([mod1], 'A'), promptTextSetting #userAgent)
-  , (([], 'o'), prompt def{ promptPrefix = "goto", promptPurpose = Gtk.InputPurposeUrl, promptCompletion = completeURI } hawkGoto)
+  , (([], 'o'), promptURL Nothing)
+  , (([], 'O'), promptURL =<< (`G.get` #uri) =<< asks hawkWebView)
   , (([], 'e'), backForward . maybe (-1) (negate . fromIntegral) =<< countMaybe)
   , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)
   , (([], 'i'), passThruBind)
@@ -226,7 +230,7 @@ runBind ev = do
   case bind of
     Command{} ->
       run $ Map.findWithDefault
-        (liftIO $ print (ks, kv))
+        (return ()) -- (liftIO $ print (ks, kv))
         (ks \\ [Gdk.ModifierTypeShiftMask], kv) commandBinds
     PassThru r
       | null ks && kv == Gdk.KEY_Escape ->
