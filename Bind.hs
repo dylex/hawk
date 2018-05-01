@@ -8,7 +8,7 @@ module Bind
   ) where
 
 import           Control.Arrow (first, second)
-import           Control.Monad (void, when)
+import           Control.Monad (void, unless)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ask, asks)
 import           Data.Default (def)
@@ -53,7 +53,7 @@ promptTextSetting :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr T.Text
 promptTextSetting attr = do
   sets <- askSettings
   x <- G.get sets attr
-  prompt (T.pack $ symbolVal attr) Nothing x $ G.set sets . return . (attr G.:=)
+  prompt def{ promptPrefix = T.pack $ symbolVal attr, promptInit = x } $ G.set sets . return . (attr G.:=)
   settingStatus attr
 
 paste :: (T.Text -> HawkM ()) -> HawkM ()
@@ -140,7 +140,7 @@ cookiesSave :: HawkM ()
 cookiesSave = do
   wv <- asks hawkWebView
   uri <- G.get wv #uri
-  prompt "save cookies for" (Just Gtk.InputPurposeUrl) (fold uri) $ saveCookies
+  prompt def{ promptPrefix = "save cookies for", promptPurpose = Gtk.InputPurposeUrl, promptInit = fold uri } saveCookies
 
 backForward :: Int32 -> HawkM ()
 backForward 0 = return ()
@@ -198,7 +198,7 @@ commandBinds = Map.fromList $
   , (([], 'R'), #reloadBypassCache =<< asks hawkWebView)
   , (([mod1], 'a'), toggleUserAgent)
   , (([mod1], 'A'), promptTextSetting #userAgent)
-  , (([], 'o'), prompt "goto" (Just Gtk.InputPurposeUrl) T.empty hawkGoto)
+  , (([], 'o'), prompt def{ promptPrefix = "goto", promptPurpose = Gtk.InputPurposeUrl, promptCompletion = completeURI } hawkGoto)
   , (([], 'e'), backForward . maybe (-1) (negate . fromIntegral) =<< countMaybe)
   , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)
   , (([], 'i'), passThruBind)
@@ -208,7 +208,7 @@ commandBinds = Map.fromList $
   , (([], 'n'), runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
   , (([], 'Q'), hawkClose)
-  , (([], 'J'), prompt "js" Nothing T.empty runScript)
+  , (([], 'J'), prompt def{ promptPrefix = "js" } runScript)
   , (([], 'm'), hawkGoto "hawk:marks")
   , (([], 'z'), #stopLoading =<< asks hawkWebView)
   ] where
@@ -219,9 +219,10 @@ runBind :: Gdk.EventKey -> HawkM Bool
 runBind ev = do
   bind <- readRef hawkBindings
   evt <- G.get ev #type
+  unless (evt == Gdk.EventTypeKeyPress) $ fail $ show evt
   ks <- G.get ev #state
   kv <- G.get ev #keyval
-  let run f = True <$ when (evt == Gdk.EventTypeKeyPress) f
+  let run f = True <$ f
   case bind of
     Command{} ->
       run $ Map.findWithDefault

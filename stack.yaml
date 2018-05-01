@@ -12,6 +12,6 @@ extra-deps:
 # in lts-11:
 - gi-javascriptcore-4.0.15
 - haskell-gi-0.21.2
-- haskell-gi-base-0.21.0
+- haskell-gi-base-0.21.1
 build:
   #haddock: true
