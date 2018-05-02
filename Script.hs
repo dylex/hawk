@@ -5,7 +5,6 @@ module Script
   , scriptMessageHandler
   ) where
 
-import           Control.Monad.Reader (asks)
 import qualified Data.Aeson as J
 import qualified Data.HashMap.Strict as HM
 import           Data.Monoid ((<>))
@@ -26,7 +25,7 @@ scriptModule = "_HaWK__"
 
 runScript :: T.Text -> HawkM ()
 runScript s = do
-  wv <- asks hawkWebView
+  wv <- askWebView
   #runJavascript wv s Gio.noCancellable Nothing
 
 setPropertiesBuilder :: HM.HashMap T.Text JSValue -> TLB.Builder

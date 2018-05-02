@@ -8,7 +8,11 @@ copyright:      2018
 license:        BSD3
 build-type:     Custom
 cabal-version:  >= 1.24
-data-files:     config.yaml hawk.css hawk.js
+data-files:     
+  config.yaml 
+  hawk.js
+  hawk.css 
+  plain.css
 
 source-repository head
   type: git

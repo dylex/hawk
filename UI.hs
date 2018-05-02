@@ -20,7 +20,7 @@ hawkClose = do
 
 hawkGoto :: T.Text -> HawkM ()
 hawkGoto url = do
-  wv <- asks hawkWebView
+  wv <- askWebView
   #loadUri wv =<< uriExpand url
 
 setStatusLeft :: T.Text -> HawkM ()

@@ -37,8 +37,8 @@ useTPGConfig
 
 loadStarted :: HawkM ()
 loadStarted = do
-  wv <- asks hawkWebView
-  uri <- G.get wv #uri
+  wv <- askWebView
+  uri <- #getUri wv
   cm <- askCookieManager
   conf <- asksConfig configCookieAcceptPolicy
   let dom = uriDomain =<< uri
@@ -50,17 +50,17 @@ loadFinished :: HawkM ()
 loadFinished = do
   p <- readRef hawkPrivateMode
   unless p $ do
-    wv <- asks hawkWebView
-    uri <- G.get wv #uri
+    wv <- askWebView
+    uri <- #getUri wv
     when (any (T.isPrefixOf "http") uri) $ do
-      title <- G.get wv #title
+      title <- #getTitle wv
       hawkDBExecute $ (\(_ :: Maybe Int32) -> ()) <$> [pgSQL|$SELECT browse_add(${uri}, ${title})|]
 
 targetChanged :: WK.HitTestResult -> Word32 -> HawkM ()
 targetChanged targ _ = do
   b <- readRef hawkBindings
   when (isCommand b) $ do
-    ctx <- G.get targ #context
+    ctx <- #getContext targ
     stat <- asks hawkStatusLeft
     let chk t = ctx .&. fromIntegral (fromEnum t) /= 0
         set :: (KnownSymbol attr, GA.AttrGetC info WK.HitTestResult attr T.Text) => GA.AttrLabelProxy attr -> HawkM ()

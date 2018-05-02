@@ -96,7 +96,7 @@ zoom :: (Double -> Double) -> HawkM ()
 zoom f = do
   wv <- askWebView
   G.set wv [#zoomLevel G.:~ f]
-  x <- G.get wv #zoomLevel
+  x <- #getZoomLevel wv
   setStatusLeft $ T.pack $ "zoomLevel " ++ show x
 
 toggleSetting :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, GA.AttrSetC info WK.Settings attr a, Eq a, Show a) => GA.AttrLabelProxy attr -> V.Vector a -> HawkM ()
@@ -142,7 +142,7 @@ toggleCookiePolicy = do
 cookiesSave :: HawkM ()
 cookiesSave = do
   wv <- askWebView
-  uri <- G.get wv #uri
+  uri <- #getUri wv
   prompt def{ promptPrefix = "save cookies for", promptPurpose = Gtk.InputPurposeUrl, promptInit = fold uri } saveCookies
 
 backForward :: Int32 -> HawkM ()
@@ -224,7 +224,7 @@ commandBinds = Map.fromList $
   , (([mod1], 'a'), toggleUserAgent)
   , (([mod1], 'A'), promptTextSetting #userAgent)
   , (([], 'o'), promptURL Nothing)
-  , (([], 'O'), promptURL =<< (`G.get` #uri) =<< askWebView)
+  , (([], 'O'), promptURL =<< #getUri =<< askWebView)
   , (([], 'e'), backForward . maybe (-1) (negate . fromIntegral) =<< countMaybe)
   , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)
   , (([], 'i'), passThruBind)

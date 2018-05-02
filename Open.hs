@@ -110,6 +110,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
     , #selectable G.:= True
     , #ellipsize G.:= Pango.EllipsizeModeEnd
     ]
+  _ <- setStyle hawkStatusURI "*{color:#08f;}"
   #packEnd hawkStatusBox hawkStatusURI True True 0
 
 
@@ -180,8 +181,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   _ <- G.after hawkWebView #close $ #destroy hawkWindow
 
-  _ <- G.on hawkWebView #loadChanged $ \ev -> do
-    print ev
+  _ <- G.on hawkWebView #loadChanged $ \ev ->
     #setText hawkStatusLoad =<< case ev of
       WK.LoadEventStarted -> "WAIT" <$ run loadStarted
       WK.LoadEventRedirected -> "REDIR" <$ run loadStarted
@@ -193,11 +193,13 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
     return False
 
   _ <- G.on hawkWebView (G.PropertyNotify #estimatedLoadProgress) $ \_ -> do
-    p <- G.get hawkWebView #estimatedLoadProgress
+    p <- #getEstimatedLoadProgress hawkWebView
     #loadFromData hawkStatusLoadStyle $ BSL.toStrict $ BSB.toLazyByteString $ "*{background-color:#" <> toHex (1-p) <> toHex p <> "00;}"
 
   _ <- G.on hawkWebView (G.PropertyNotify #uri) $ \_ ->
-    #setText hawkStatusURI . fold =<< G.get hawkWebView #uri
+    #setText hawkStatusURI . fold =<< #getUri hawkWebView
+  _ <- G.on hawkWebView (G.PropertyNotify #title) $ \_ ->
+    #setTitle hawkWindow . ("hawk " <>) =<< #getTitle hawkWebView
   _ <- G.on hawkWebView #mouseTargetChanged $ (.) run . targetChanged
 
   if isJust (PM.lookup [] configTLSAccept)
