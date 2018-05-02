@@ -45,6 +45,7 @@ block-load-src:
   - doubleclick.net
   - facebook.net
   - thebrighttag.com
+  - appdynamics.com
 uri-rewrite:
   amg: https://www.allmusic.com/search/artist/
   dd: https://duckduckgo.com/html/?kp=-1&kd=-1&q=

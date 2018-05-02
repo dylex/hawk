@@ -20,12 +20,13 @@ module URI.Domain
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Encoding as J (pair)
 import qualified Data.Aeson.Internal as J ((<?>), JSONPathElement(Key))
-import qualified Data.Aeson.Types as J (listParser, toJSONKeyText)
+import qualified Data.Aeson.Types as J (toJSONKeyText, typeMismatch)
 import qualified Data.HashMap.Strict as HM
 import           Data.Monoid ((<>))
 import           Data.String (IsString(..))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import qualified Data.Vector as V
 import qualified Database.PostgreSQL.Typed.Types as PG
 
 import qualified URI.PrefixMap as PM
@@ -81,7 +82,11 @@ instance J.ToJSON (DomainPMap ()) where
   toJSON = J.toJSON . map (J.toJSON . Domain . fst) . PM.toList
 
 instance J.FromJSON (DomainPMap ()) where
-  parseJSON = fmap PM.fromList . J.listParser (fmap ((, ()) . domainComponents) . J.parseJSON)
+  parseJSON J.Null = return PM.empty
+  parseJSON (J.Bool True) = return $ PM.singleton [] ()
+  parseJSON (J.Bool False) = return PM.empty
+  parseJSON (J.Array l) = PM.fromList <$> V.mapM (fmap ((, ()) . domainComponents) . J.parseJSON) l
+  parseJSON v = J.typeMismatch "domain set" v
 
 domainPSetRegExp :: DomainPMap a -> JSValue
 domainPSetRegExp m

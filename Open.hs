@@ -5,7 +5,7 @@ module Open
   , globalOpen
   ) where
 
-import           Control.Monad (forM, forM_)
+import           Control.Monad (forM, forM_, void)
 import qualified Data.Aeson as J
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
@@ -15,7 +15,7 @@ import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
 import qualified Data.HashMap.Strict as HM
 import           Data.IORef (newIORef)
-import           Data.Maybe (isNothing)
+import           Data.Maybe (isNothing, isJust)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -36,7 +36,10 @@ import UI
 import JS
 import Script
 import URI.Domain (domainPSetRegExp)
+import qualified URI.PrefixMap as PM
 import qualified URI.ListMap as LM
+import URI
+import URI.Domain
 import URI.Hawk
 import Event
 
@@ -94,7 +97,6 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
     [ #selectable G.:= True
     , #ellipsize G.:= Pango.EllipsizeModeEnd
     ]
-  #setMarkup hawkStatusLeft "Loading..."
   #packStart hawkStatusBox hawkStatusLeft False False 0
 
   -- status right
@@ -180,20 +182,40 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   _ <- G.on hawkWebView #loadChanged $ \ev -> do
     print ev
-    Gtk.labelSetText hawkStatusLoad =<< case ev of
+    #setText hawkStatusLoad =<< case ev of
       WK.LoadEventStarted -> "WAIT" <$ run loadStarted
       WK.LoadEventRedirected -> "REDIR" <$ run loadStarted
       WK.LoadEventCommitted -> return "RECV"
       WK.LoadEventFinished -> "" <$ run loadFinished
       (WK.AnotherLoadEvent x) -> return $ T.pack $ show x
+  _ <- G.on hawkWebView #loadFailed $ \_ _ _ -> do
+    #setText hawkStatusLoad "ERR"
+    return False
 
   _ <- G.on hawkWebView (G.PropertyNotify #estimatedLoadProgress) $ \_ -> do
     p <- G.get hawkWebView #estimatedLoadProgress
     #loadFromData hawkStatusLoadStyle $ BSL.toStrict $ BSB.toLazyByteString $ "*{background-color:#" <> toHex (1-p) <> toHex p <> "00;}"
 
   _ <- G.on hawkWebView (G.PropertyNotify #uri) $ \_ ->
-    Gtk.labelSetText hawkStatusURI . fold =<< G.get hawkWebView #uri
+    #setText hawkStatusURI . fold =<< G.get hawkWebView #uri
   _ <- G.on hawkWebView #mouseTargetChanged $ (.) run . targetChanged
+
+  if isJust (PM.lookup [] configTLSAccept)
+    then #setTlsErrorsPolicy hawkWebContext WK.TLSErrorsPolicyIgnore
+    else void $ G.on hawkWebView #loadFailedWithTlsErrors $ \u c f -> case uriDomain u of
+      Just d | isJust (PM.lookupPrefix (domainComponents d) configTLSAccept) -> do
+        putStrLn $ "Accepting TLS Certificate: " ++ show d ++ " " ++ show f
+        #allowTlsCertificateForHost hawkWebContext c $ joinDomain d
+        return True
+      _ -> do
+        putStrLn $ "Rejecting TLS Certificate: " ++ show u ++ " " ++ show f
+        return False
+
+  hawkFindController <- #getFindController hawkWebView
+  _ <- G.on hawkFindController #foundText $ \n ->
+    #setText hawkStatusLeft $ T.pack $ (if n == maxBound then "many" else show n) ++ " match" ++ (if n == 1 then "" else "es")
+  _ <- G.on hawkFindController #failedToFindText $
+    #setText hawkStatusLeft $ T.pack $ "no matches"
 
   #registerUriScheme hawkWebContext "hawk" $ run . hawkURIScheme
   _ <- G.on hawkWindow #keyPressEvent $ run . runBind

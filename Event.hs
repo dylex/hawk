@@ -58,13 +58,18 @@ loadFinished = do
 
 targetChanged :: WK.HitTestResult -> Word32 -> HawkM ()
 targetChanged targ _ = do
-  ctx <- G.get targ #context
-  stat <- asks hawkStatusLeft
-  let chk b = ctx .&. fromIntegral (fromEnum b) /= 0
-      set :: (KnownSymbol attr, GA.AttrGetC info WK.HitTestResult attr T.Text) => GA.AttrLabelProxy attr -> HawkM ()
-      set p = #setText stat =<< G.get targ p
-  if
-    | chk WK.HitTestResultContextLink  -> set #linkUri
-    | chk WK.HitTestResultContextImage -> set #imageUri
-    | chk WK.HitTestResultContextMedia -> set #mediaUri
-    | otherwise -> return ()
+  b <- readRef hawkBindings
+  when (isCommand b) $ do
+    ctx <- G.get targ #context
+    stat <- asks hawkStatusLeft
+    let chk t = ctx .&. fromIntegral (fromEnum t) /= 0
+        set :: (KnownSymbol attr, GA.AttrGetC info WK.HitTestResult attr T.Text) => GA.AttrLabelProxy attr -> HawkM ()
+        set p = #setText stat =<< G.get targ p
+    if
+      | chk WK.HitTestResultContextLink  -> set #linkUri
+      | chk WK.HitTestResultContextImage -> set #imageUri
+      | chk WK.HitTestResultContextMedia -> set #mediaUri
+      | otherwise -> return ()
+  where
+  isCommand Command{} = True
+  isCommand _ = False

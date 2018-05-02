@@ -128,6 +128,7 @@ data Config = Config
   , configPrivateMode :: !Bool
   , configBlockLoad :: !(V.Vector T.Text)
   , configBlockLoadSrc :: !DomainPSet
+  , configTLSAccept :: !DomainPSet
   , configURIRewrite :: !(HM.HashMap T.Text T.Text)
   , configURIAlias :: !(HM.HashMap T.Text T.Text)
   }
@@ -158,6 +159,7 @@ instance Default Config where
     , configPrivateMode = False
     , configBlockLoad = V.empty
     , configBlockLoadSrc = PM.empty
+    , configTLSAccept = PM.empty
     , configURIRewrite = HM.empty
     , configURIAlias = HM.empty
     }
@@ -264,6 +266,7 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configPrivateMode'        .<- "private-mode"
   configBlockLoad'          .<- "block-load"
   configBlockLoadSrc'       .<- "block-load-src"
+  configTLSAccept'          .<- "tls-accept"
   configURIRewrite'         .<- "uri-rewrite"
   configURIAlias'           .<- "uri-alias"
   where

@@ -9,7 +9,7 @@ namespace _HaWK__ {
     let b = block ? block.includes(type) : false;
     if (!b && blockSrc && src)
       b = blockSrc.test(src);
-    console.log((b ? "blocking" : "allowing") + " " + type + " " + src);
+    console.log((b ? "-" : "+") + " " + (<any>type).padEnd(6) + " " + src);
     return b;
   }
 

@@ -1,15 +1,15 @@
 * {
-	color: #CCC;
-	background: #000;
-	text-shadow: none;
-	font-family: sans-serif;
+	color: #CCC !important;
+	background: #000 !important;
+	text-shadow: none !important;
+	font-family: sans-serif !important;
 }
 a:link {
-	color: #FFF;
+	color: #FFF !important;
 }
 a:visited {
-	color: #999;
+	color: #999 !important;
 }
 a:focus {
-	color: #9F9;
+	color: #9F9 !important;
 }

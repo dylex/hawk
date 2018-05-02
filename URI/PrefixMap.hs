@@ -117,5 +117,5 @@ toList (Leaf x) = [([],x)]
 toList (Node m) = foldMap tal $ M.toList m where
   tal (n,d) = map (first (n:)) $ toList d
 
-fromList :: Key k => [([k],a)] -> PrefixMap k a
+fromList :: (Foldable f, Key k) => f ([k],a) -> PrefixMap k a
 fromList = foldMap $ uncurry singleton

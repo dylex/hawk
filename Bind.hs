@@ -11,6 +11,8 @@ import           Control.Arrow (first, second)
 import           Control.Monad (void, unless)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ask, asks)
+import           Data.Bits ((.|.))
+import           Data.Char (isUpper)
 import           Data.Default (def)
 import           Data.Foldable (fold)
 import           Data.Function (on)
@@ -41,6 +43,7 @@ commandMode :: HawkM ()
 commandMode = do
   _ <- countMaybe
   setStatusLeft T.empty
+  #searchFinish =<< askFindController
   writeRef hawkBindings def
 
 settingStatus :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, Show a) => GA.AttrLabelProxy attr -> HawkM ()
@@ -91,7 +94,7 @@ runScriptCount a b = do
 
 zoom :: (Double -> Double) -> HawkM ()
 zoom f = do
-  wv <- asks hawkWebView
+  wv <- askWebView
   G.set wv [#zoomLevel G.:~ f]
   x <- G.get wv #zoomLevel
   setStatusLeft $ T.pack $ "zoomLevel " ++ show x
@@ -138,25 +141,39 @@ toggleCookiePolicy = do
 
 cookiesSave :: HawkM ()
 cookiesSave = do
-  wv <- asks hawkWebView
+  wv <- askWebView
   uri <- G.get wv #uri
   prompt def{ promptPrefix = "save cookies for", promptPurpose = Gtk.InputPurposeUrl, promptInit = fold uri } saveCookies
 
 backForward :: Int32 -> HawkM ()
 backForward 0 = return ()
-backForward (-1) = #goBack =<< asks hawkWebView
-backForward 1 = #goForward =<< asks hawkWebView
+backForward (-1) = #goBack =<< askWebView
+backForward 1 = #goForward =<< askWebView
 backForward n = do
-  wv <- asks hawkWebView
+  wv <- askWebView
   bf <- #getBackForwardList wv
   mapM_ (#goToBackForwardListItem wv) =<< #getNthItem bf n
 
 promptURL :: Maybe T.Text -> HawkM ()
 promptURL i = prompt def{ promptPrefix = "goto", promptPurpose = Gtk.InputPurposeUrl, promptInit = fold i, promptCompletion = completeURI } hawkGoto
 
+findSearch :: T.Text -> HawkM ()
+findSearch x = do
+  fc <- askFindController
+  #search fc x' (
+        (T.any isUpper x' `orOpt` WK.FindOptionsCaseInsensitive)
+    .|. (T.null s         `orOpt` WK.FindOptionsAtWordStarts)
+    .|.                      opt  WK.FindOptionsWrapAround)
+    256
+  where
+  (s, x') = T.span (' '==) x
+  opt = fromIntegral . fromEnum
+  orOpt True = const 0
+  orOpt False = opt
+
 inspector :: HawkM ()
 inspector = do
-  ins <- #getInspector =<< asks hawkWebView
+  ins <- #getInspector =<< askWebView
   #show ins
 
 type BindMap = Map.Map ([Gdk.ModifierType], Word32) (HawkM ())
@@ -193,16 +210,21 @@ commandBinds = Map.fromList $
   , (([mod1], '='), toggleSettingBool #zoomTextOnly)
   , (([], '+'), zoom (0.1 +))
   , (([], '_'), zoom (subtract 0.1))
+
   , (([], 'p'), paste hawkGoto)
   , (([], 'G'),   runScript "window.scrollTo({top:document.body.scrollHeight})")
   , (([mod1], 'c'), toggleCookiePolicy)
   , (([ctrl, mod1], 'c'), cookiesSave)
-  , (([], 'r'), #reload =<< asks hawkWebView)
-  , (([], 'R'), #reloadBypassCache =<< asks hawkWebView)
+  , (([], 'r'), #reload =<< askWebView)
+  , (([], 'R'), #reloadBypassCache =<< askWebView)
+  , (([], 'l'), #searchNext =<< askFindController)
+  , (([], 'L'), #searchPrevious =<< askFindController)
+  , (([], '/'), prompt def{ promptPrefix = "/" } findSearch)
+
   , (([mod1], 'a'), toggleUserAgent)
   , (([mod1], 'A'), promptTextSetting #userAgent)
   , (([], 'o'), promptURL Nothing)
-  , (([], 'O'), promptURL =<< (`G.get` #uri) =<< asks hawkWebView)
+  , (([], 'O'), promptURL =<< (`G.get` #uri) =<< askWebView)
   , (([], 'e'), backForward . maybe (-1) (negate . fromIntegral) =<< countMaybe)
   , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)
   , (([], 'i'), passThruBind)
@@ -211,10 +233,11 @@ commandBinds = Map.fromList $
   , (([], 't'), runScriptCount "window.scrollBy(0,+20*" ")")
   , (([], 'n'), runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
+
   , (([], 'Q'), hawkClose)
   , (([], 'J'), prompt def{ promptPrefix = "js" } runScript)
   , (([], 'm'), hawkGoto "hawk:marks")
-  , (([], 'z'), #stopLoading =<< asks hawkWebView)
+  , (([], 'z'), #stopLoading =<< askWebView)
   ] where
   mod1 = Gdk.ModifierTypeMod1Mask
   ctrl = Gdk.ModifierTypeControlMask

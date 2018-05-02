@@ -8,11 +8,13 @@ module Types
   , runHawkM
   , asksGlobal
   , asksConfig
+  , askWebView
   , askSettings
   , askWebContext
   , askUserContentManager
   , askWebsiteDataManager 
   , askCookieManager
+  , askFindController
   , readRef
   , writeRef
   , modifyRef
@@ -89,20 +91,26 @@ asksGlobal = asks . (. hawkGlobal)
 asksConfig :: (Config -> a) -> HawkM a
 asksConfig = asks . (. hawkConfig)
 
+askWebView :: HawkM WK.WebView
+askWebView = asks hawkWebView
+
 askSettings :: HawkM WK.Settings
-askSettings = #getSettings =<< asks hawkWebView
+askSettings = #getSettings =<< askWebView
 
 askWebContext :: HawkM WK.WebContext
-askWebContext = #getContext =<< asks hawkWebView
+askWebContext = #getContext =<< askWebView
 
 askUserContentManager :: HawkM WK.UserContentManager
-askUserContentManager = #getUserContentManager =<< asks hawkWebView
+askUserContentManager = #getUserContentManager =<< askWebView
 
 askWebsiteDataManager :: HawkM WK.WebsiteDataManager
-askWebsiteDataManager = #getWebsiteDataManager =<< asks hawkWebView
+askWebsiteDataManager = #getWebsiteDataManager =<< askWebView
 
 askCookieManager :: HawkM WK.CookieManager
 askCookieManager = #getCookieManager =<< askWebsiteDataManager
+
+askFindController :: HawkM WK.FindController
+askFindController = #getFindController =<< askWebView
 
 readRef :: (Hawk -> IORef a) -> HawkM a
 readRef f =
