@@ -2,13 +2,15 @@ namespace _HaWK__ {
 
   export var block: undefined|string[];
   export var blockSrc: undefined|RegExp;
+  export var allowSrc: undefined|RegExp;
 
   type LoadedElement = HTMLElement&{src?:string,href?:string};
 
   function blockTest(type: string, src: string|undefined): boolean {
     let b = block ? block.includes(type) : false;
-    if (!b && blockSrc && src)
-      b = blockSrc.test(src);
+    const t = b ? allowSrc : blockSrc;
+    if (t && src && t.test(src))
+      b = !b;
     console.log((b ? "-" : "+") + " " + (<any>type).padEnd(6) + " " + src);
     return b;
   }

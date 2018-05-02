@@ -46,6 +46,12 @@ block-load-src:
   - facebook.net
   - thebrighttag.com
   - appdynamics.com
+  - twitter.com
+allow-load-src:
+  - github.com
+  - lib.oomap.co.uk
+  - bikes.oobrien.com
+  - www.gstatic.com
 uri-rewrite:
   amg: https://www.allmusic.com/search/artist/
   dd: https://duckduckgo.com/html/?kp=-1&kd=-1&q=

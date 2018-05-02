@@ -14,10 +14,13 @@ import           Data.Maybe (fromMaybe)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import           Data.Time.Clock (UTCTime)
+import           Data.Time.LocalTime (utcToLocalZonedTime)
+import           Data.Time.Format (formatTime, defaultTimeLocale)
 import           Database.PostgreSQL.Typed (pgSQL)
 import qualified Text.Blaze.Html.Renderer.Utf8 as HU
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as HA
+import qualified System.IO.Unsafe as Unsafe
 
 import qualified GI.WebKit2 as WK
 import qualified GI.Gio as Gio
@@ -45,7 +48,7 @@ listBrowse b = H.table $ do
   H.tbody $
     forM_ b $ \(u, t, l) ->
       H.tr $ do
-        H.td $ mapM_ (H.string . show) l
+        H.td $ mapM_ (H.string . formatTime defaultTimeLocale "%F %T" . Unsafe.unsafeDupablePerformIO . utcToLocalZonedTime) l
         H.td $ H.a H.! HA.href (H.textValue u) $ H.text (fromMaybe u t)
 
 hawkURIScheme :: WK.URISchemeRequest -> HawkM ()

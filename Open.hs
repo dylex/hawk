@@ -130,6 +130,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   hawkScript <- WK.userScriptNew (setPropertiesScript $ HM.fromList
     [ ("block", JSON $ J.toJSON configBlockLoad)
     , ("blockSrc", domainPSetRegExp configBlockLoadSrc)
+    , ("allowSrc", domainPSetRegExp configAllowLoadSrc)
     ]) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
   #addScript hawkUserContentManager hawkScript
 
