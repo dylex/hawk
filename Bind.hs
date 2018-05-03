@@ -8,7 +8,7 @@ module Bind
   ) where
 
 import           Control.Arrow (first, second)
-import           Control.Monad (void, unless)
+import           Control.Monad (join, unless, void)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ask, asks)
 import           Data.Bits ((.|.))
@@ -97,7 +97,7 @@ zoom f = do
   wv <- askWebView
   G.set wv [#zoomLevel G.:~ f]
   x <- #getZoomLevel wv
-  setStatusLeft $ T.pack $ "zoomLevel " ++ show x
+  setStatusLeft $ T.pack $ "zoom-level " ++ show x
 
 toggleSetting :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, GA.AttrSetC info WK.Settings attr a, Eq a, Show a) => GA.AttrLabelProxy attr -> V.Vector a -> HawkM ()
 toggleSetting attr opts = do
@@ -121,13 +121,19 @@ toggleStyleSheet :: HawkM ()
 toggleStyleSheet =
   loadStyleSheet . maybe (flip $ on mod succ) (const . const . pred . fromIntegral) =<< countMaybe
 
+togglePrivateMode :: HawkM ()
+togglePrivateMode = do
+  c <- countMaybe
+  p <- modifyRef hawkPrivateMode $ join (,) . maybe not (const . (1 ==)) c
+  setStatusLeft $ T.pack $ "private-mode " ++ show p
+
 toggleCookiePolicy :: HawkM ()
 toggleCookiePolicy = do
   cm <- askCookieManager
   stat <- asks hawkStatusLeft
   let set p = do
         #setAcceptPolicy cm p
-        #setText stat $ T.pack $ "cookieAcceptPolicy " ++ show p
+        #setText stat $ T.pack $ "cookie-accept-policy " ++ show p
   maybe
     (#getAcceptPolicy cm Gio.noCancellable $ Just $ \_ cb ->
       set . next =<< #getAcceptPolicyFinish cm cb)
@@ -212,9 +218,11 @@ commandBinds = Map.fromList $
   , (([], '_'), zoom (subtract 0.1))
 
   , (([], 'p'), paste hawkGoto)
+  , (([mod1], 'p'), togglePrivateMode)
   , (([], 'G'),   runScript "window.scrollTo({top:document.body.scrollHeight})")
   , (([mod1], 'c'), toggleCookiePolicy)
-  , (([ctrl, mod1], 'c'), cookiesSave)
+  , (([ctrl, mod1], 'c'), mapM_ saveCookies =<< #getUri =<< askWebView)
+  , (([ctrl, mod1], 'C'), cookiesSave)
   , (([], 'r'), #reload =<< askWebView)
   , (([], 'R'), #reloadBypassCache =<< askWebView)
   , (([], 'l'), #searchNext =<< askFindController)
