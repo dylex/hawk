@@ -7,7 +7,8 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Event
-  ( loadStarted
+  ( uriChanged
+  , loadStarted
   , loadFinished
   , targetChanged
   ) where
@@ -29,22 +30,20 @@ import qualified GI.WebKit2 as WK
 import Types
 import Config
 import Database
-import URI
-import URI.Domain
-import qualified URI.ListMap as LM
 
 useTPGConfig
 
+uriChanged :: Maybe T.Text -> HawkM ()
+uriChanged uri = do
+  liftIO $ print uri
+  pol <- asksConfig (configCookieAcceptPolicy . siteConfig uri)
+  liftIO $ print pol
+  cm <- askCookieManager
+  #setAcceptPolicy cm pol
+
 loadStarted :: HawkM ()
 loadStarted = do
-  wv <- askWebView
-  uri <- #getUri wv
-  cm <- askCookieManager
-  conf <- asksConfig configCookieAcceptPolicy
-  let dom = uriDomain =<< uri
-      pol = LM.lookupPrefix (maybe [] domainComponents dom) conf
-  liftIO $ print (dom, pol)
-  mapM_ (#setAcceptPolicy cm) pol
+  return ()
 
 loadFinished :: HawkM ()
 loadFinished = do

@@ -9,6 +9,7 @@ module URI.ListMap
   , insert
   , delete
   , alter
+  , union
   , unionWith
   , lookup
   , lookupPrefix
@@ -81,7 +82,7 @@ unionMaybeWith f (Just x) (Just y) = Just $ f x y
 unionWith :: Key k => (a -> a -> a) -> ListMap k a -> ListMap k a -> ListMap k a
 unionWith f (ListMap v1 m1) (ListMap v2 m2) = ListMap (unionMaybeWith f v1 v2) (M.unionWith (unionWith f) m1 m2)
 
--- |Union two maps; more general values (shorter keys) always take precedence.
+-- |Union two maps, left-biased.
 union :: Key k => ListMap k a -> ListMap k a -> ListMap k a
 union (ListMap v1 m1) (ListMap v2 m2) = ListMap (v1 <|> v2) (M.unionWith union m1 m2)
 

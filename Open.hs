@@ -30,17 +30,15 @@ import qualified GI.WebKit2 as WK
 import Paths_hawk (getDataFileName)
 import Types
 import Config
+import GValue
 import Cookies
 import Bind
 import UI
 import JS
 import Script
-import URI.Domain (domainPSetRegExp)
 import qualified URI.PrefixMap as PM
-import qualified URI.ListMap as LM
 import URI
-import URI.Domain
-import URI.Hawk
+import Scheme
 import Event
 
 setStyle :: Gtk.IsWidget w => w -> BS.ByteString -> IO Gtk.CssProvider
@@ -71,6 +69,7 @@ globalOpen = do
 
 hawkOpen :: Global -> Config -> IO Hawk
 hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
+  let SiteConfig{..} = siteConfig Nothing hawkConfig
   hawkDatabase <- mapM pgConnect configDatabase
 
   hawkWindow <- G.new Gtk.Window
@@ -152,7 +151,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
       ".txt" -> WK.CookiePersistentStorageText
       "" -> WK.CookiePersistentStorageText
       _ -> WK.CookiePersistentStorageSqlite)
-  mapM_ (#setAcceptPolicy hawkCookieManager) $ LM.lookup [] configCookieAcceptPolicy
+  #setAcceptPolicy hawkCookieManager configCookieAcceptPolicy
 
   #setCacheModel hawkWebContext configCacheModel
   #setWebProcessCountLimit hawkWebContext configProcessCountLimit
@@ -182,7 +181,8 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   _ <- G.after hawkWebView #close $ #destroy hawkWindow
 
-  _ <- G.on hawkWebView #loadChanged $ \ev ->
+  _ <- G.on hawkWebView #loadChanged $ \ev -> do
+    print ev
     #setText hawkStatusLoad =<< case ev of
       WK.LoadEventStarted -> "WAIT" <$ run loadStarted
       WK.LoadEventRedirected -> "REDIR" <$ run loadStarted
@@ -197,8 +197,10 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
     p <- #getEstimatedLoadProgress hawkWebView
     #loadFromData hawkStatusLoadStyle $ BSL.toStrict $ BSB.toLazyByteString $ "*{background-color:#" <> toHex (1-p) <> toHex p <> "00;}"
 
-  _ <- G.on hawkWebView (G.PropertyNotify #uri) $ \_ ->
-    #setText hawkStatusURI . fold =<< #getUri hawkWebView
+  _ <- G.on hawkWebView (G.PropertyNotify #uri) $ \_ -> do
+    uri <- #getUri hawkWebView
+    run $ uriChanged uri
+    #setText hawkStatusURI $ fold uri
   _ <- G.on hawkWebView (G.PropertyNotify #title) $ \_ ->
     #setTitle hawkWindow . ("hawk " <>) =<< #getTitle hawkWebView
   _ <- G.on hawkWebView #mouseTargetChanged $ (.) run . targetChanged

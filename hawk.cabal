@@ -64,10 +64,12 @@ executable hawk
     Cookies
     Database
     Event
+    GValue
     JS
     JSON
     Open
     Prompt
+    Scheme
     Script
     Types
     UI
@@ -77,4 +79,3 @@ executable hawk
     URI.PrefixMap
     URI.Domain
     URI.Expand
-    URI.Hawk

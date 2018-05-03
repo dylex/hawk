@@ -13,5 +13,6 @@ extra-deps:
 - gi-javascriptcore-4.0.15
 - haskell-gi-0.21.2
 - haskell-gi-base-0.21.1
+- rank2classes-1.0.2
 build:
   #haddock: true

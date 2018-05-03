@@ -2,7 +2,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module URI.Hawk
+module Scheme
   ( hawkURIScheme
   ) where
 

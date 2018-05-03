@@ -7,6 +7,7 @@
 module URI
   ( escapeURI
   , uriDomain
+  , module URI.Domain
   ) where
 
 import           Control.Monad ((<=<))

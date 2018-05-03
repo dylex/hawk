@@ -3,16 +3,18 @@
 module JSON
   ( defaultParse
   , parseJSON
+  , ObjectParser
   , (.<~)
   , (.<-)
   , parseObject
+  , parseSubObject
   , modifyObject
   ) where
 
 import           Control.Arrow (second)
 import           Control.Lens (Lens', (^.), (.~))
 import           Control.Monad (unless)
-import           Control.Monad.State (StateT, execStateT, get, put, modify, lift)
+import           Control.Monad.State (StateT(..), execStateT, get, put, modify, lift)
 import           Data.Aeson (parseJSON)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Internal as J ((<?>), JSONPathElement(Key))
@@ -23,7 +25,8 @@ import qualified Data.Text as T
 defaultParse :: J.FromJSON a => a
 defaultParse = either error id $ J.parseEither parseJSON J.emptyObject
 
-type ObjectParser a = StateT (J.Object, a) J.Parser ()
+type ObjectParserM a = StateT (J.Object, a) J.Parser
+type ObjectParser a = ObjectParserM a ()
 
 (.<~) :: Lens' b a -> T.Text -> (a -> J.Value -> J.Parser a) -> ObjectParser b
 (.<~) f k p = do
@@ -38,11 +41,16 @@ type ObjectParser a = StateT (J.Object, a) J.Parser ()
 (.<-) f k = f .<~ k $ const parseJSON
 
 parseObject :: a -> String -> ObjectParser a -> J.Value -> J.Parser a
-parseObject r _ _ J.Null = return r
-parseObject r n p v = J.withObject n (\o -> do
-  (o', r') <- execStateT p (o, r)
+parseObject a _ _ J.Null = return a
+parseObject a n p v = J.withObject n (\o -> do
+  (o', a') <- execStateT p (o, a)
   unless (HM.null o') $ fail $ "Unknown fields in " ++ n ++ ": " ++ show (HM.keys o')
-  return r') v
+  return a') v
+
+parseSubObject :: b -> ObjectParser b -> ObjectParserM a b
+parseSubObject b p = StateT $ \(o, a) -> do
+  (o', b') <- execStateT p (o, b)
+  return (b', (o', a))
 
 modifyObject :: (a -> a) -> ObjectParser a
 modifyObject = modify . second

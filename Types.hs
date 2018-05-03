@@ -8,6 +8,7 @@ module Types
   , runHawkM
   , asksGlobal
   , asksConfig
+  , asksSiteConfig
   , askWebView
   , askSettings
   , askWebContext
@@ -90,6 +91,11 @@ asksGlobal = asks . (. hawkGlobal)
 
 asksConfig :: (Config -> a) -> HawkM a
 asksConfig = asks . (. hawkConfig)
+
+asksSiteConfig :: (SiteConfig -> a) -> HawkM a
+asksSiteConfig f = do
+  uri <- #getUri =<< askWebView
+  asksConfig $ f . siteConfig uri
 
 askWebView :: HawkM WK.WebView
 askWebView = asks hawkWebView

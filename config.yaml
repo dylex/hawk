@@ -20,9 +20,7 @@ user-agent:
   - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537 (KHTML, like Gecko) Chrome/40 Safari/537"
   - "Mozilla/5.0 (X11; Linux x86_64) Gecko/20180101 Firefox/45.0"
   - "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; WOW64; Trident/5.0)"
-cookie-accept-policy:
-  "": false
-  github.com: true
+cookie-accept-policy: false
 block-load:
   - SCRIPT
   - IFRAME
@@ -49,9 +47,11 @@ block-load-src:
   - twitter.com
 allow-load-src:
   - github.com
-  - lib.oomap.co.uk
-  - bikes.oobrien.com
-  - www.gstatic.com
+site:
+  github.com:
+    cookie-accept-policy: true
+  bikes.oobrien.com:
+    block-load: []
 uri-rewrite:
   amg: https://www.allmusic.com/search/artist/
   dd: https://duckduckgo.com/html/?kp=-1&kd=-1&q=

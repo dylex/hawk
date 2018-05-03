@@ -1,13 +1,13 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Config
-  ( GValue(..)
-  , makeGValue
-  , setObjectProperty
-  , Config(..)
+  ( Config(..)
+  , SiteConfig(..)
+  , siteConfig
   , loadConfigFile
   , baseConfigFile
   , useTPGConfig
@@ -16,24 +16,17 @@ module Config
 import           Control.Arrow (left)
 import           Control.Monad (MonadPlus, mzero)
 import qualified Data.Aeson as J
-import qualified Data.Aeson.Encoding as J (null_)
 import qualified Data.Aeson.Types as J (Parser, typeMismatch, parseEither)
 import qualified Data.ByteString.Char8 as BSC
 import           Data.Default (Default(def))
-import qualified Data.GI.Base as G
-import qualified Data.GI.Base.GValue as GValue
-import qualified Data.GI.Base.Properties as GProp
 import qualified Data.HashMap.Strict as HM
-import           Data.Int (Int64)
 import           Data.List (isPrefixOf)
 import           Data.Maybe (fromMaybe, isJust)
-import           Data.Scientific (floatingOrInteger)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32, Word16)
 import qualified Data.Yaml as Y
 import           Database.PostgreSQL.Typed (PGDatabase(..), defaultPGDatabase, useTPGDatabase)
-import           Foreign.Ptr (nullPtr)
 import qualified Language.Haskell.TH as TH
 import           Network (PortID(..))
 import           System.Environment (getEnv)
@@ -47,49 +40,9 @@ import qualified GI.WebKit2 as WK
 import JSON
 import qualified URI.ListMap as LM
 import qualified URI.PrefixMap as PM
-import URI.Domain (DomainPSet, DomainMap)
+import URI
 import Util
-
-data GValue
-  = GValueNull
-  | GValueString T.Text
-  | GValueInt Int64
-  | GValueDouble Double
-  | GValueBool Bool
-  deriving (Eq, Show)
-
-instance J.ToJSON GValue where
-  toJSON GValueNull       = J.Null
-  toJSON (GValueString x) = J.toJSON x
-  toJSON (GValueInt x)    = J.toJSON x
-  toJSON (GValueDouble x) = J.toJSON x
-  toJSON (GValueBool x)   = J.toJSON x
-  toEncoding GValueNull       = J.null_
-  toEncoding (GValueString x) = J.toEncoding x
-  toEncoding (GValueInt x)    = J.toEncoding x
-  toEncoding (GValueDouble x) = J.toEncoding x
-  toEncoding (GValueBool x)   = J.toEncoding x
-
-instance J.FromJSON GValue where
-  parseJSON J.Null = return GValueNull
-  parseJSON (J.String x) = return $ GValueString x
-  parseJSON (J.Number x) = return $ either GValueDouble GValueInt $ floatingOrInteger x
-  parseJSON (J.Bool x) = return $ GValueBool x
-  parseJSON x = J.typeMismatch "GValue" x
-
-makeGValue :: GValue -> IO G.GValue
-makeGValue GValueNull       = GValue.toGValue nullPtr
-makeGValue (GValueString x) = GValue.toGValue (Just x)
-makeGValue (GValueInt    x) = GValue.toGValue x
-makeGValue (GValueDouble x) = GValue.toGValue x
-makeGValue (GValueBool   x) = GValue.toGValue x
-
-setObjectProperty :: G.GObject a => a -> String -> GValue -> IO ()
-setObjectProperty o p GValueNull        = GProp.setObjectPropertyPtr    o p nullPtr
-setObjectProperty o p (GValueString x)  = GProp.setObjectPropertyString o p (Just x)
-setObjectProperty o p (GValueInt x)     = GProp.setObjectPropertyInt64  o p x
-setObjectProperty o p (GValueDouble x)  = GProp.setObjectPropertyDouble o p x
-setObjectProperty o p (GValueBool x)    = GProp.setObjectPropertyBool   o p x
+import GValue
 
 type GObjectConfig = HM.HashMap String GValue
 
@@ -107,7 +60,6 @@ data Config = Config
   , configDataDirectory :: !(Maybe FilePath)
   , configCacheDirectory :: !(Maybe FilePath)
   , configCookieFile :: !(Maybe FilePath)
-  , configCookieAcceptPolicy :: !(DomainMap WK.CookieAcceptPolicy)
 
   -- WebContext
   , configCacheModel :: !WK.CacheModel
@@ -126,14 +78,21 @@ data Config = Config
   -- Hawk
   , configUserAgent :: !(V.Vector T.Text)
   , configPrivateMode :: !Bool
-  , configBlockLoad :: !(V.Vector T.Text)
   , configBlockLoadSrc, configAllowLoadSrc :: !DomainPSet
   , configTLSAccept :: !DomainPSet
   , configURIRewrite :: !(HM.HashMap T.Text T.Text)
   , configURIAlias :: !(HM.HashMap T.Text T.Text)
+
+  , configSite :: !(DomainMap SiteConfig)
+  }
+
+data SiteConfig = SiteConfig
+  { configCookieAcceptPolicy :: WK.CookieAcceptPolicy
+  , configBlockLoad :: (V.Vector T.Text) -- TODO better block set
   }
 
 makeLenses' ''Config
+makeLenses' ''SiteConfig
 
 instance Default Config where
   def = Config
@@ -145,7 +104,6 @@ instance Default Config where
     , configDataDirectory = Nothing
     , configCacheDirectory = Just $ Unsafe.unsafeDupablePerformIO $ getXdgDirectory XdgCache "hawk"
     , configCookieFile = Nothing
-    , configCookieAcceptPolicy = LM.empty
     , configCacheModel = WK.CacheModelWebBrowser
     , configProcessCountLimit = 0
     , configProxy = Nothing
@@ -157,13 +115,22 @@ instance Default Config where
     , configZoomLevel = 1
     , configURI = Nothing
     , configPrivateMode = False
-    , configBlockLoad = V.empty
     , configBlockLoadSrc = PM.empty
     , configAllowLoadSrc = PM.empty
     , configTLSAccept = PM.empty
     , configURIRewrite = HM.empty
     , configURIAlias = HM.empty
+    , configSite = LM.empty
     }
+
+instance Default SiteConfig where
+  def = SiteConfig
+    { configCookieAcceptPolicy = WK.CookieAcceptPolicyNever
+    , configBlockLoad = V.empty
+    }
+
+siteConfig :: Maybe T.Text -> Config -> SiteConfig
+siteConfig uri = fromMaybe def . LM.lookupPrefix (maybe [] domainComponents $ uriDomain =<< uri) . configSite
 
 instance J.FromJSON PGDatabase where
   parseJSON = J.withObject "database" $ \d -> do
@@ -238,6 +205,14 @@ instance (MonadPlus m, J.FromJSON1 m, J.FromJSON a) => J.FromJSON (Some m a) whe
 parseSome :: (MonadPlus m, J.FromJSON1 m, J.FromJSON a) => J.Value -> J.Parser (m a)
 parseSome v = getSome <$> parseJSON v
 
+parserSiteConfig :: ObjectParser SiteConfig
+parserSiteConfig = do
+  configCookieAcceptPolicy' .<- "cookie-accept-policy"
+  configBlockLoad'          .<- "block-load"
+
+parseSiteConfig :: SiteConfig -> J.Value -> J.Parser SiteConfig
+parseSiteConfig initconf = parseObject initconf "site config" parserSiteConfig
+
 parseConfig :: Config -> FilePath -> J.Value -> J.Parser Config
 parseConfig initconf conffile = parseObject initconf "config" $ do
   configDatabase'           .<- "database"
@@ -252,7 +227,6 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   modifyObject $ \c -> c{ configCookieFile = (</> "cookies.txt") <$> configDataDirectory c }
   configCookieFile'         .<~ "cookie-file"     $ const parsePath
   -- modifyObject $ \c -> c{ configCookieAcceptPolicy = maybe WK.CookieAcceptPolicyNever (const WK.CookieAcceptPolicyNoThirdParty) $ configCookieFile c }
-  configCookieAcceptPolicy' .<- "cookie-accept-policy"
   configCacheModel'         .<- "cache-model"
   configProcessCountLimit'  .<- "process-count-limit"
   configProxy'              .<- "proxy"
@@ -265,12 +239,15 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configURI'                .<- "uri"
   configUserAgent'          .<~ "user-agent" $ const parseSome
   configPrivateMode'        .<- "private-mode"
-  configBlockLoad'          .<- "block-load"
   configBlockLoadSrc'       .<- "block-load-src"
   configAllowLoadSrc'       .<- "allow-load-src"
   configTLSAccept'          .<- "tls-accept"
   configURIRewrite'         .<- "uri-rewrite"
   configURIAlias'           .<- "uri-alias"
+  site <- parseSubObject (fromMaybe def $ LM.lookup [] $ configSite initconf) parserSiteConfig
+  configSite'               .<~ "site" $ \s ->
+    fmap (LM.insert [] site . (`LM.union` s))
+    . J.liftParseJSON (parseSiteConfig site) undefined
   where
   dir = (takeDirectory conffile </>)
   parsePath = fmap (fmap dir) . parseJSON
