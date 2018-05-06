@@ -47,9 +47,12 @@ block-load-src:
   - twitter.com
 allow-load-src:
   - github.com
+  - maps.google.com
 site:
   github.com:
     cookie-accept-policy: true
+  travis-ci.org:
+    block-load: []
   bikes.oobrien.com:
     block-load: []
 uri-rewrite:

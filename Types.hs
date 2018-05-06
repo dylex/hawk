@@ -78,6 +78,7 @@ data Hawk = Hawk
   , hawkBindings :: !(IORef Bindings)
   , hawkStyleSheets :: !(V.Vector WK.UserStyleSheet)
   , hawkStyleSheet :: !(IORef Int)
+  , hawkScript :: !(Maybe WK.UserScript)
   , hawkPrivateMode :: !(IORef Bool)
   }
 

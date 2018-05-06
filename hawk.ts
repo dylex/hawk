@@ -8,10 +8,14 @@ namespace _HaWK__ {
 
   function blockTest(type: string, src: string|undefined): boolean {
     let b = block ? block.includes(type) : false;
+    let v = b;
     const t = b ? allowSrc : blockSrc;
-    if (t && src && t.test(src))
+    if (t && src && t.test(src)) {
       b = !b;
-    console.log((b ? "-" : "+") + " " + (<any>type).padEnd(6) + " " + src);
+      v = true;
+    }
+    if (v)
+      console.log((b ? "-" : "+") + " " + (<any>type).padEnd(6) + " " + src);
     return b;
   }
 

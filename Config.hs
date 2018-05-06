@@ -54,7 +54,7 @@ data Config = Config
 
   -- UserContentManager
   , configStyleSheet :: !(V.Vector FilePath)
-  , configScript :: !(V.Vector FilePath)
+  , configScript :: !(Maybe FilePath)
 
   -- WebsiteDataManager
   , configDataDirectory :: !(Maybe FilePath)
@@ -100,7 +100,7 @@ instance Default Config where
     , configUserAgent = V.empty
     , configSettings = HM.empty
     , configStyleSheet = V.empty
-    , configScript = V.empty
+    , configScript = Nothing
     , configDataDirectory = Nothing
     , configCacheDirectory = Just $ Unsafe.unsafeDupablePerformIO $ getXdgDirectory XdgCache "hawk"
     , configCookieFile = Nothing
@@ -245,9 +245,9 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configURIRewrite'         .<- "uri-rewrite"
   configURIAlias'           .<- "uri-alias"
   site <- parseSubObject (fromMaybe def $ LM.lookup [] $ configSite initconf) parserSiteConfig
-  configSite'               .<~ "site" $ \s ->
-    fmap (LM.insert [] site . (`LM.union` s))
+  configSite'               .<~ "site" $ \s -> fmap (`LM.union` s)
     . J.liftParseJSON (parseSiteConfig site) undefined
+  modifyObject $ \c -> c{ configSite = LM.insert [] site $ configSite c }
   where
   dir = (takeDirectory conffile </>)
   parsePath = fmap (fmap dir) . parseJSON

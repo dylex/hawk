@@ -1,10 +1,11 @@
 module Script
-  ( setPropertiesScript
-  , runScript
+  ( runScript
   , linkSelect
   , scriptMessageHandler
+  , loadScripts
   ) where
 
+import           Control.Monad.Reader (asks)
 import qualified Data.Aeson as J
 import qualified Data.HashMap.Strict as HM
 import           Data.Monoid ((<>))
@@ -16,8 +17,10 @@ import qualified Data.Text.Lazy.Builder as TLB
 import qualified GI.Gio as Gio
 import qualified GI.WebKit2 as WK
 
+import Config
 import Types
 import UI
+import URI
 import JS
 
 scriptModule :: IsString s => s
@@ -30,9 +33,6 @@ runScript s = do
 
 setPropertiesBuilder :: HM.HashMap T.Text JSValue -> TLB.Builder
 setPropertiesBuilder = setObjPropertiesBuilder scriptModule
-
-setPropertiesScript :: HM.HashMap T.Text JSValue -> T.Text
-setPropertiesScript = TL.toStrict . TLB.toLazyText . setPropertiesBuilder
 
 runScriptBuilder :: TLB.Builder -> HawkM ()
 runScriptBuilder = runScript . TL.toStrict . TLB.toLazyText
@@ -48,3 +48,16 @@ linkSelect t r = callScript "linkSelect" [JSON (J.String t), JSRegExp r True]
 scriptMessageHandler :: WK.JavascriptResult -> HawkM ()
 scriptMessageHandler _arg =
   passThruBind
+
+loadScripts :: Maybe T.Text -> HawkM ()
+loadScripts uri = do
+  cm <- askUserContentManager
+  conf <- asks hawkConfig
+  #removeAllScripts cm
+  #addScript cm =<< asksGlobal globalScript
+  #addScript cm =<< WK.userScriptNew (TL.toStrict $ TLB.toLazyText $ setPropertiesBuilder (HM.fromList
+    [ ("block", JSON $ J.toJSON $ configBlockLoad $ siteConfig uri conf)
+    , ("blockSrc", domainPSetRegExp $ configBlockLoadSrc conf)
+    , ("allowSrc", domainPSetRegExp $ configAllowLoadSrc conf)
+    ]) <> "console.log(" <> scriptModule <> ".block);") WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
+  mapM_ (#addScript cm) =<< asks hawkScript

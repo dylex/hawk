@@ -5,7 +5,6 @@ module URI.Expand
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Char (isAlphaNum)
 import qualified Data.HashMap.Strict as HM
-import           Data.Maybe (fromMaybe)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import           System.Directory (getHomeDirectory)
@@ -30,17 +29,17 @@ uriExpand = expand . T.strip where
       Just (' ',_) -> do
         rm <- asksConfig configURIRewrite
         return $ maybe
-          (maybe
-            s
-            (rewrite s)
-            $ HM.lookup T.empty rm)
+          (mayrw $ HM.lookup T.empty rm)
           (rewrite r)
           $ HM.lookup a rm
       ~Nothing -> do
         am <- asksConfig configURIAlias
-        return $ fromMaybe
-          ("https://" <> s)
-          $ HM.lookup s am
-    where (a,r) = T.break (\c -> c == ' ' || c == ':') s
-  rewrite arg pfx = pfx <> escapeURI okInArg arg
-
+        maybe
+          (mayrw <$> if T.any ('.' ==) s
+            then return Nothing
+            else asksConfig (HM.lookup T.empty . configURIRewrite))
+          return $ HM.lookup s am
+    where
+    (a,r) = T.break (\c -> c == ' ' || c == ':') s
+    rewrite arg pfx = pfx <> escapeURI okInArg arg
+    mayrw = maybe ("https://" <> s) (rewrite s)

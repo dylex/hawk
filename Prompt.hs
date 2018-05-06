@@ -32,6 +32,8 @@ import UI
 
 useTPGConfig
 
+-- TODO: history
+
 data Prompt = Prompt
   { promptPrefix :: T.Text
   , promptPurpose :: Gtk.InputPurpose

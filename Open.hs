@@ -6,7 +6,6 @@ module Open
   ) where
 
 import           Control.Monad (forM, forM_, void)
-import qualified Data.Aeson as J
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy as BSL
@@ -34,7 +33,6 @@ import GValue
 import Cookies
 import Bind
 import UI
-import JS
 import Script
 import qualified URI.PrefixMap as PM
 import URI
@@ -69,7 +67,6 @@ globalOpen = do
 
 hawkOpen :: Global -> Config -> IO Hawk
 hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
-  let SiteConfig{..} = siteConfig Nothing hawkConfig
   hawkDatabase <- mapM pgConnect configDatabase
 
   hawkWindow <- G.new Gtk.Window
@@ -125,18 +122,9 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
     d <- TIO.readFile f
     WK.userStyleSheetNew d WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
 
-  #addScript hawkUserContentManager globalScript
-  hawkScript <- WK.userScriptNew (setPropertiesScript $ HM.fromList
-    [ ("block", JSON $ J.toJSON configBlockLoad)
-    , ("blockSrc", domainPSetRegExp configBlockLoadSrc)
-    , ("allowSrc", domainPSetRegExp configAllowLoadSrc)
-    ]) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
-  #addScript hawkUserContentManager hawkScript
-
-  forM_ configScript $ \f -> do
+  hawkScript <- forM configScript $ \f -> do
     d <- TIO.readFile f
-    s <- WK.userScriptNew d WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
-    #addScript hawkUserContentManager s
+    WK.userScriptNew d WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
 
   hawkWebContext <- WK.webContextNewWithWebsiteDataManager =<<
     G.new WK.WebsiteDataManager
@@ -151,7 +139,6 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
       ".txt" -> WK.CookiePersistentStorageText
       "" -> WK.CookiePersistentStorageText
       _ -> WK.CookiePersistentStorageSqlite)
-  #setAcceptPolicy hawkCookieManager configCookieAcceptPolicy
 
   #setCacheModel hawkWebContext configCacheModel
   #setWebProcessCountLimit hawkWebContext configProcessCountLimit
@@ -202,7 +189,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
     run $ uriChanged uri
     #setText hawkStatusURI $ fold uri
   _ <- G.on hawkWebView (G.PropertyNotify #title) $ \_ ->
-    #setTitle hawkWindow . ("hawk " <>) =<< #getTitle hawkWebView
+    #setTitle hawkWindow . ("hawk " <>) . fold =<< #getTitle hawkWebView
   _ <- G.on hawkWebView #mouseTargetChanged $ (.) run . targetChanged
 
   if isJust (PM.lookup [] configTLSAccept)
@@ -229,6 +216,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   True <- #registerScriptMessageHandler hawkUserContentManager "hawk"
 
   run $ do
+    uriChanged Nothing
     loadStyleSheet $ \_ _ -> 0
     loadCookies
     mapM_ hawkGoto configURI
