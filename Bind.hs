@@ -227,7 +227,7 @@ commandBinds = Map.fromList $
   , (([], 'R'), #reloadBypassCache =<< askWebView)
   , (([], 'l'), #searchNext =<< askFindController)
   , (([], 'L'), #searchPrevious =<< askFindController)
-  , (([], '/'), prompt def{ promptPrefix = "/" } findSearch)
+  , (([], '/'), prompt def{ promptPrefix = "search" } findSearch)
 
   , (([mod1], 'a'), toggleUserAgent)
   , (([mod1], 'A'), promptTextSetting #userAgent)
@@ -241,6 +241,7 @@ commandBinds = Map.fromList $
   , (([], 't'), runScriptCount "window.scrollBy(0,+20*" ")")
   , (([], 'n'), runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
+  , (([mod1], 'h'), hawkGoto "hawk:history")
 
   , (([], 'Q'), hawkClose)
   , (([], 'J'), prompt def{ promptPrefix = "js" } runScript)

@@ -162,6 +162,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   hawkBindings <- newIORef def
   hawkStyleSheet <- newIORef undefined
   hawkPrivateMode <- newIORef configPrivateMode
+  hawkPromptHistory <- newIORef HM.empty
 
   let hawk = Hawk{..}
       run = runHawkM hawk

@@ -25,11 +25,13 @@ module Types
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ReaderT, runReaderT, asks)
 import           Data.Default (Default(def))
+import qualified Data.HashMap.Strict as HM
 import           Data.IORef (IORef, readIORef, writeIORef, atomicModifyIORef')
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32)
 import           Database.PostgreSQL.Typed (PGConnection)
+import qualified Deque as D
 
 import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
@@ -43,21 +45,11 @@ data Bindings
   | PassThru
     { bindingsReturn :: HawkM Bindings
     }
-    {-
-  | Prompt 
-    { promptPrompt :: !String
-    , promptInput :: !Input
-    , promptCompleter :: Completer
-    , promptExec :: Maybe String -> UzblM ()
-    }
-  | Capture
-    { captureFun :: ModKey -> UzblM ()
-    , bindingsReturn :: Bindings 
-    }
-    -}
 
 instance Default Bindings where
   def = Command Nothing
+
+type PromptHistory = IORef (D.Deque T.Text)
 
 data Global = Global
   { globalUserAgent :: !T.Text
@@ -80,6 +72,7 @@ data Hawk = Hawk
   , hawkStyleSheet :: !(IORef Int)
   , hawkScript :: !(Maybe WK.UserScript)
   , hawkPrivateMode :: !(IORef Bool)
+  , hawkPromptHistory :: !(IORef (HM.HashMap T.Text PromptHistory))
   }
 
 type HawkM = ReaderT Hawk IO

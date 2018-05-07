@@ -14,5 +14,6 @@ extra-deps:
 - haskell-gi-0.21.2
 - haskell-gi-base-0.21.1
 - rank2classes-1.0.2
+- deque-0.2.1
 build:
   #haddock: true

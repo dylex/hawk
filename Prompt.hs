@@ -10,17 +10,20 @@ module Prompt
   , completeURI
   ) where
 
-import           Control.Arrow (second)
+import           Control.Arrow (first, second)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ask)
 import qualified Data.GI.Base as G
 import           Data.Default (Default(..))
 import           Data.Foldable (fold)
-import           Data.IORef (newIORef, readIORef, writeIORef)
+import qualified Data.HashMap.Strict as HM
+import           Data.IORef (newIORef, readIORef, writeIORef, modifyIORef', atomicModifyIORef')
 import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Text as T
+import           Data.Tuple (swap)
 import           Database.PostgreSQL.Typed (pgSQL)
+import qualified Deque as D
 
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
@@ -31,8 +34,6 @@ import Database
 import UI
 
 useTPGConfig
-
--- TODO: history
 
 data Prompt = Prompt
   { promptPrefix :: T.Text
@@ -50,7 +51,12 @@ instance Default Prompt where
     }
 
 prompt :: Prompt -> (T.Text -> HawkM ()) -> HawkM ()
-prompt Prompt{..} f = do
+prompt Prompt{..} run = do
+  histr <- maybe (do
+    h <- liftIO $ newIORef mempty
+    modifyRef_ hawkPromptHistory $ HM.insert promptPrefix h
+    return h)
+    return . HM.lookup promptPrefix =<< readRef hawkPromptHistory
   setStatusLeft promptPrefix
   hawk <- ask
   ent <- G.new Gtk.Entry $
@@ -72,25 +78,33 @@ prompt Prompt{..} f = do
     b <- readRef hawkBindings
     case b of
       PassThru r -> do
+        liftIO $ modifyIORef' histr $ D.cons t
         writeRef hawkBindings =<< r
-        f t
+        run t
       _ -> return ()
   ctr <- liftIO $ newIORef Nothing
-  _ <- G.on ent #keyPressEvent $ \ev -> do
-    kv <- G.get ev #keyval
-    if kv == Gdk.KEY_Tab || kv == Gdk.KEY_ISO_Left_Tab
-      then do
-        ks <- (kv /= Gdk.KEY_Tab ||) . elem Gdk.ModifierTypeShiftMask <$> G.get ev #state
+  let set t = do
+        #setText ent t
+        #setPosition ent (-1)
+      comp ks = do
         (ct, cn) <- maybe
           ((, 0) <$> #getText ent)
           (return . second (if ks then pred else succ)) =<< readIORef ctr
-        comp <- runHawkM hawk $ promptCompletion ct cn
-        #setText ent $ fromMaybe ct comp
-        #setPosition ent (-1)
-        writeIORef ctr ((ct, cn) <$ comp)
+        ct' <- runHawkM hawk $ promptCompletion ct cn
+        set $ fromMaybe ct ct'
+        writeIORef ctr ((ct, cn) <$ ct')
         return True
-      else
-        return False
+      hist f = do
+        set =<< atomicModifyIORef' histr . f =<< #getText ent
+        return True
+  _ <- G.on ent #keyPressEvent $ \ev -> do
+    kv <- G.get ev #keyval
+    case kv of
+      Gdk.KEY_Tab -> comp . elem Gdk.ModifierTypeShiftMask =<< G.get ev #state
+      Gdk.KEY_ISO_Left_Tab -> comp True
+      Gdk.KEY_Up   -> hist $ \t d -> maybe (d, t) (first (D.snoc t) . swap) $ D.uncons d
+      Gdk.KEY_Down -> hist $ \t d -> maybe (d, t) (first (D.cons t) . swap) $ D.unsnoc d
+      _ -> return False
 
   #show ent
   #grabFocus ent

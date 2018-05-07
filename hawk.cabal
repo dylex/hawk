@@ -32,6 +32,7 @@ executable hawk
     , bytestring
     , containers
     , data-default
+    , deque
     , directory
     , filepath
     , hashable
