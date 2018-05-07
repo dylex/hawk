@@ -21,6 +21,9 @@ source-repository head
 custom-setup
   setup-depends: base, containers, Cabal
 
+flag webkit2_20
+  description: use webkit >= 2.20 features
+
 executable hawk
   default-language: Haskell2010
   ghc-options: -Wall
@@ -80,3 +83,8 @@ executable hawk
     URI.PrefixMap
     URI.Domain
     URI.Expand
+  if flag(webkit2_20)
+    cpp-options: -DWEBKIT2_20
+    pkgconfig-depends: webkit2gtk-4.0 >= 2.20
+  else
+    pkgconfig-depends: webkit2gtk-4.0 >= 2.18

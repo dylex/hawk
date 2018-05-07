@@ -9,6 +9,8 @@ module Cookies
   , saveCookies
   ) where
 
+#ifdef WEBKIT2_20
+
 import           Control.Monad ((<=<), guard, when, void)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (asks)
@@ -189,3 +191,15 @@ saveCookies uri =
   mapM_ (\store ->
     getCookies uri (either saveCookiesDB saveCookiesTxt store))
     =<< cookieStore
+
+#else
+
+import qualified Data.Text as T
+import Types
+
+loadCookies :: HawkM ()
+loadCookies = return ()
+saveCookies :: T.Text -> HawkM ()
+saveCookies _ = return ()
+
+#endif
