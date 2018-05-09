@@ -1,7 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TupleSections #-}
 
-module URI.ListMap
+module Data.ListMap
   ( ListMap
   , empty
   , null
@@ -21,9 +21,13 @@ import Prelude hiding (lookup, null, filter)
 
 import           Control.Applicative ((<|>))
 import           Control.Arrow (first)
+import qualified Data.Aeson as J
+import qualified Data.Aeson.Encoding as JE
 import           Data.Foldable (fold)
 import           Data.Hashable (Hashable)
+import qualified Data.HashMap.Strict as HM
 import qualified Data.HashMap.Strict as M
+import           Data.Monoid ((<>))
 
 import Util
 
@@ -32,7 +36,7 @@ type Key k = (Eq k, Hashable k)
 -- |A map in which each key is a list (a trie)
 data ListMap k a = ListMap
   { _listMapValue :: !(Maybe a)
-  , _listMap :: !(M.HashMap k (ListMap k a))
+  , _listMap :: !(HM.HashMap k (ListMap k a))
   }
   deriving (Show)
 
@@ -102,3 +106,29 @@ toList (ListMap v m) = maybe id ((:) . ([] ,)) v $ foldMap tal $ M.toList m wher
 
 fromList :: (Foldable f, Key k) => f ([k],a) -> ListMap k a
 fromList = foldMap $ uncurry singleton
+
+-- |Expanded list mapping (not the inverse of ToJSON)
+instance (J.FromJSONKey k, J.FromJSON k, Key k) => J.FromJSON1 (ListMap k) where
+  liftParseJSON par parl j@(J.Object _) =
+    fromList . HM.toList <$> J.liftParseJSON par parl j
+  liftParseJSON par _ j = singleton [] <$> par j
+
+instance (J.FromJSONKey k, J.FromJSON k, Key k, J.FromJSON a) => J.FromJSON (ListMap k a) where
+  parseJSON = J.parseJSON1
+
+-- |Direct nested representation as {$:val,map...}
+instance J.ToJSONKey k => J.ToJSON1 (ListMap k) where
+  liftToJSON to _ = toj where
+    toj (ListMap v m) = J.Object
+      $ maybe id (HM.insert "$" . to) v
+      $ M.foldrWithKey (\k -> HM.insert (tok k) . toj) HM.empty m
+    J.ToJSONKeyText tok _ = J.toJSONKey
+  liftToEncoding to _ = toe where
+    toe (ListMap v m) = JE.pairs
+      $ foldMap (JE.pair "$" . to) v
+      <> M.foldrWithKey (\k -> mappend . JE.pair' (tok k) . toe) mempty m
+    J.ToJSONKeyText _ tok = J.toJSONKey
+    
+instance (J.ToJSONKey k, J.ToJSON a) => J.ToJSON (ListMap k a) where
+  toJSON = J.toJSON1
+  toEncoding = J.toEncoding1

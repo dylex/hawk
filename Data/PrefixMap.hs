@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 
-module URI.PrefixMap
+module Data.PrefixMap
   ( PrefixMap
   , empty
   , null

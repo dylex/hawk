@@ -5,6 +5,7 @@ module JS
   , quoteRegExp
   , altRegExp
   , setObjPropertiesBuilder
+  , LoadElement(..)
   ) where
 
 import qualified Data.Aeson as J
@@ -31,7 +32,7 @@ instance J.FromJSON JSValue where
   parseJSON = return . JSON
 
 commas :: (a -> TLB.Builder) -> [a] -> TLB.Builder
-commas f = mintersperse (TLB.singleton ',') . map f
+commas f = mintersperseMap (TLB.singleton ',') f
 
 buildJSValue :: JSValue -> TLB.Builder
 buildJSValue (JSON j) = JT.encodeToTextBuilder j
@@ -61,3 +62,23 @@ setObjPropertiesBuilder :: T.Text -> HM.HashMap T.Text JSValue -> TLB.Builder
 setObjPropertiesBuilder obj = HM.foldrWithKey (\k v b ->
   TLB.fromText obj <> TLB.singleton '[' <> JT.encodeToTextBuilder (J.String k) <> "]=" <> buildJSValue v <> TLB.singleton ';' <> b) mempty
 
+data LoadElement
+  = LoadIFRAME
+  | LoadIMG
+  | LoadLINK
+  | LoadSCRIPT
+  deriving (Eq, Enum, Bounded)
+
+instance J.ToJSON LoadElement where
+  toJSON LoadIFRAME = J.String "IFRAME"
+  toJSON LoadIMG    = J.String "IMG"
+  toJSON LoadLINK   = J.String "LINK"
+  toJSON LoadSCRIPT = J.String "SCRIPT"
+
+instance J.FromJSON LoadElement where
+  parseJSON = J.withText "load element" $ ple . T.toUpper where
+    ple "IFRAME" = return LoadIFRAME
+    ple "IMG"    = return LoadIMG
+    ple "LINK"   = return LoadLINK
+    ple "SCRIPT" = return LoadSCRIPT
+    ple _ = fail "Unknown load element"

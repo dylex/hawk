@@ -1,21 +1,40 @@
 namespace _HaWK__ {
 
-  export var block: undefined|string[];
-  export var blockSrc: undefined|RegExp;
-  export var allowSrc: undefined|RegExp;
+  type DomainMap<a> = {$?:a,[d:string]:DomainMap<a>|a|undefined};
+
+  function lookupDomain<a>(map: DomainMap<a>|undefined, dom: string|undefined): a|undefined {
+    if (!map)
+      return;
+    let v = map.$;
+    if (!dom)
+      return v;
+    const d = dom.split('.').reverse();
+    for (let c of d) {
+      map = <DomainMap<a>>map[c];
+      if (!map) break;
+      if (map.$ != undefined)
+        v = map.$;
+    }
+    return v;
+  }
+
+  export var allow: DomainMap<string[]>|undefined;
 
   type LoadedElement = HTMLElement&{src?:string,href?:string};
 
-  function blockTest(type: string, src: string|undefined): boolean {
-    let b = block ? block.includes(type) : false;
-    let v = b;
-    const t = b ? allowSrc : blockSrc;
-    if (t && src && t.test(src)) {
-      b = !b;
-      v = true;
-    }
-    if (v)
-      console.log((b ? "-" : "+") + " " + (<any>type).padEnd(6) + " " + src);
+  function uriDomain(u: string|undefined): string|undefined {
+    if (!u)
+      return;
+    const a = document.createElement('a');
+    a.href = u;
+    return a.hostname;
+  }
+
+  function loadAllow(type: string, src: string|undefined): boolean {
+    const a = lookupDomain(allow, uriDomain(src));
+    const b = a ? a.includes(type) : false;
+    if (a || !b)
+      console.log((b ? "+" : "-") + " " + (<any>type).padEnd(6) + " " + src);
     return b;
   }
 
@@ -31,7 +50,7 @@ namespace _HaWK__ {
       const el = <LoadedElement>event.target;
       if (!(el instanceof HTMLElement))
         return;
-      if (blockTest(el.tagName, el.src || el.href)) {
+      if (!loadAllow(el.tagName, el.src || el.href)) {
         event.preventDefault();
         if (el.parentNode)
           el.parentNode.removeChild(el);

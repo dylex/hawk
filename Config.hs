@@ -38,9 +38,12 @@ import qualified System.IO.Unsafe as Unsafe
 import qualified GI.WebKit2 as WK
 
 import JSON
-import qualified URI.ListMap as LM
-import qualified URI.PrefixMap as PM
+import qualified Data.ListMap as LM
+import qualified Data.PrefixMap as PM
+import qualified Data.BitSet as ES
+import Domain
 import URI
+import JS
 import Util
 import GValue
 
@@ -78,7 +81,6 @@ data Config = Config
   -- Hawk
   , configUserAgent :: !(V.Vector T.Text)
   , configPrivateMode :: !Bool
-  , configBlockLoadSrc, configAllowLoadSrc :: !DomainPSet
   , configTLSAccept :: !DomainPSet
   , configURIRewrite :: !(HM.HashMap T.Text T.Text)
   , configURIAlias :: !(HM.HashMap T.Text T.Text)
@@ -88,7 +90,7 @@ data Config = Config
 
 data SiteConfig = SiteConfig
   { configCookieAcceptPolicy :: WK.CookieAcceptPolicy
-  , configBlockLoad :: (V.Vector T.Text) -- TODO better block set
+  , configAllowLoad :: DomainMap (ES.BitSet LoadElement)
   }
 
 makeLenses' ''Config
@@ -115,8 +117,6 @@ instance Default Config where
     , configZoomLevel = 1
     , configURI = Nothing
     , configPrivateMode = False
-    , configBlockLoadSrc = PM.empty
-    , configAllowLoadSrc = PM.empty
     , configTLSAccept = PM.empty
     , configURIRewrite = HM.empty
     , configURIAlias = HM.empty
@@ -126,7 +126,7 @@ instance Default Config where
 instance Default SiteConfig where
   def = SiteConfig
     { configCookieAcceptPolicy = WK.CookieAcceptPolicyNever
-    , configBlockLoad = V.empty
+    , configAllowLoad = LM.empty
     }
 
 siteConfig :: Maybe T.Text -> Config -> SiteConfig
@@ -208,7 +208,7 @@ parseSome v = getSome <$> parseJSON v
 parserSiteConfig :: ObjectParser SiteConfig
 parserSiteConfig = do
   configCookieAcceptPolicy' .<- "cookie-accept-policy"
-  configBlockLoad'          .<- "block-load"
+  configAllowLoad'          .<~ "allow-load" $ \s -> fmap (`LM.union` s) . parseJSON
 
 parseSiteConfig :: SiteConfig -> J.Value -> J.Parser SiteConfig
 parseSiteConfig initconf = parseObject initconf "site config" parserSiteConfig
@@ -239,8 +239,6 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configURI'                .<- "uri"
   configUserAgent'          .<~ "user-agent" $ const parseSome
   configPrivateMode'        .<- "private-mode"
-  configBlockLoadSrc'       .<- "block-load-src"
-  configAllowLoadSrc'       .<- "allow-load-src"
   configTLSAccept'          .<- "tls-accept"
   configURIRewrite'         .<- "uri-rewrite"
   configURIAlias'           .<- "uri-alias"

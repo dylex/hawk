@@ -1,5 +1,7 @@
 module Util
-  ( mintersperse
+  ( mwhen
+  , mintersperse
+  , mintersperseMap
   , justIf
   , foldMapA
   , fromDoesNotExist
@@ -15,9 +17,16 @@ import           Data.Monoid ((<>))
 import qualified Language.Haskell.TH as TH
 import           System.IO.Error (isDoesNotExistError)
 
+mwhen :: Monoid m => Bool -> m -> m
+mwhen True v = v
+mwhen False _ = mempty
+
 mintersperse :: Monoid m => m -> [m] -> m
-mintersperse _ [] = mempty
-mintersperse d (x:l) = x <> mconcat (map (d <>) l)
+mintersperse d = mintersperseMap d id
+
+mintersperseMap :: Monoid m => m -> (a -> m) -> [a] -> m
+mintersperseMap _ _ [] = mempty
+mintersperseMap d f (x:l) = f x <> mconcat (map ((<>) d . f) l)
 
 justIf :: (a -> Bool) -> a -> Maybe a
 justIf f = find f . Identity

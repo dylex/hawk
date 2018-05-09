@@ -20,7 +20,6 @@ import qualified GI.WebKit2 as WK
 import Config
 import Types
 import UI
-import URI
 import JS
 
 scriptModule :: IsString s => s
@@ -52,12 +51,10 @@ scriptMessageHandler _arg =
 loadScripts :: Maybe T.Text -> HawkM ()
 loadScripts uri = do
   cm <- askUserContentManager
-  conf <- asks hawkConfig
+  conf <- asksConfig $ siteConfig uri
   #removeAllScripts cm
   #addScript cm =<< asksGlobal globalScript
   #addScript cm =<< WK.userScriptNew (TL.toStrict $ TLB.toLazyText $ setPropertiesBuilder (HM.fromList
-    [ ("block", JSON $ J.toJSON $ configBlockLoad $ siteConfig uri conf)
-    , ("blockSrc", domainPSetRegExp $ configBlockLoadSrc conf)
-    , ("allowSrc", domainPSetRegExp $ configAllowLoadSrc conf)
-    ]) <> "console.log(" <> scriptModule <> ".block);") WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
+    [ ("allow", JSON $ J.toJSON $ configAllowLoad conf)
+    ]) <> "console.log(JSON.stringify(" <> scriptModule <> ".allow));") WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
   mapM_ (#addScript cm) =<< asks hawkScript

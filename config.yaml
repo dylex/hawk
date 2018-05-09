@@ -21,40 +21,38 @@ user-agent:
   - "Mozilla/5.0 (X11; Linux x86_64) Gecko/20180101 Firefox/45.0"
   - "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; WOW64; Trident/5.0)"
 cookie-accept-policy: false
-block-load:
-  - SCRIPT
-  - IFRAME
-block-load-src:
-  - adnxs.com
-  - amazon-adsystem.com
-  - as5000.com
-  - atdmt.com
-  - dwoozone.com
-  - google-analytics.com
-  - googlesyndication.com
-  - mediaplex.com
-  - optimizely.com
-  - quantserve.com
-  - scorecardresearch.com
-  - sharingmachine.com
-  - webtrendslive.com
-  - 2mdn.net
-  - crwdcntrl.net
-  - doubleclick.net
-  - facebook.net
-  - thebrighttag.com
-  - appdynamics.com
-  - twitter.com
-allow-load-src:
-  - github.com
-  - maps.google.com
+allow-load:
+  "": [IMG, LINK]
+  adnxs.com: []
+  amazon-adsystem.com: []
+  as5000.com: []
+  atdmt.com: []
+  dwoozone.com: []
+  google-analytics.com: []
+  googlesyndication.com: []
+  mediaplex.com: []
+  optimizely.com: []
+  quantserve.com: []
+  scorecardresearch.com: []
+  sharingmachine.com: []
+  webtrendslive.com: []
+  2mdn.net: []
+  crwdcntrl.net: []
+  doubleclick.net: []
+  facebook.net: []
+  thebrighttag.com: []
+  appdynamics.com: []
+  twitter.com: []
+  github.com: true
+  maps.google.com: true
 site:
   github.com:
     cookie-accept-policy: true
   travis-ci.org:
-    block-load: []
+    allow-load:
+      travis-ci.org: true
   bikes.oobrien.com:
-    block-load: []
+    allow-load: true
 uri-rewrite:
   amg: https://www.allmusic.com/search/artist/
   dd: https://duckduckgo.com/html/?kp=-1&kd=-1&q=

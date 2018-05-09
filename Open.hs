@@ -34,8 +34,9 @@ import Cookies
 import Bind
 import UI
 import Script
-import qualified URI.PrefixMap as PM
+import qualified Data.PrefixMap as PM
 import URI
+import Domain
 import Scheme
 import Event
 

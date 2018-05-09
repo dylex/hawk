@@ -1,5 +1,5 @@
-module URI.Expand
-  ( uriExpand
+module Expand
+  ( expandURI
   ) where
 
 import           Control.Monad.IO.Class (liftIO)
@@ -16,8 +16,8 @@ import URI
 okInArg :: Char -> Bool
 okInArg c = isAlphaNum c || c `elem` ("!$'()*,/:" :: String)
 
-uriExpand :: T.Text -> HawkM T.Text
-uriExpand = expand . T.strip where
+expandURI :: T.Text -> HawkM T.Text
+expandURI = expand . T.strip where
   expand s = case T.uncons s of
     Nothing -> return "about:blank"
     Just ('/',_) -> return $ "file://" <> s

@@ -66,8 +66,13 @@ executable hawk
     Bind
     Config
     Cookies
+    Data.BitSet
+    Data.ListMap
+    Data.PrefixMap
     Database
+    Domain
     Event
+    Expand
     GValue
     JS
     JSON
@@ -77,12 +82,8 @@ executable hawk
     Script
     Types
     UI
-    Util
     URI
-    URI.ListMap
-    URI.PrefixMap
-    URI.Domain
-    URI.Expand
+    Util
   if flag(webkit2_20)
     cpp-options: -DWEBKIT2_20
     pkgconfig-depends: webkit2gtk-4.0 >= 2.20

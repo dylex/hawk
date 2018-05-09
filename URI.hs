@@ -7,7 +7,6 @@
 module URI
   ( escapeURI
   , uriDomain
-  , module URI.Domain
   ) where
 
 import           Control.Monad ((<=<))
@@ -16,7 +15,7 @@ import qualified Data.Text.Encoding as TE
 import qualified Database.PostgreSQL.Typed.Types as PG
 import qualified Network.URI as U
 
-import URI.Domain
+import Domain
 
 type URI = T.Text
 
