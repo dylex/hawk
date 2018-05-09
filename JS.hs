@@ -6,6 +6,7 @@ module JS
   , altRegExp
   , setObjPropertiesBuilder
   , LoadElement(..)
+  , loadElementName
   ) where
 
 import qualified Data.Aeson as J
@@ -32,7 +33,7 @@ instance J.FromJSON JSValue where
   parseJSON = return . JSON
 
 commas :: (a -> TLB.Builder) -> [a] -> TLB.Builder
-commas f = mintersperseMap (TLB.singleton ',') f
+commas = mintersperseMap (TLB.singleton ',')
 
 buildJSValue :: JSValue -> TLB.Builder
 buildJSValue (JSON j) = JT.encodeToTextBuilder j
@@ -69,11 +70,14 @@ data LoadElement
   | LoadSCRIPT
   deriving (Eq, Enum, Bounded)
 
+loadElementName :: LoadElement -> T.Text
+loadElementName LoadIFRAME = "IFRAME"
+loadElementName LoadIMG    = "IMG"
+loadElementName LoadLINK   = "LINK"
+loadElementName LoadSCRIPT = "SCRIPT"
+
 instance J.ToJSON LoadElement where
-  toJSON LoadIFRAME = J.String "IFRAME"
-  toJSON LoadIMG    = J.String "IMG"
-  toJSON LoadLINK   = J.String "LINK"
-  toJSON LoadSCRIPT = J.String "SCRIPT"
+  toJSON = J.String . loadElementName
 
 instance J.FromJSON LoadElement where
   parseJSON = J.withText "load element" $ ple . T.toUpper where

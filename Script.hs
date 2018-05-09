@@ -21,6 +21,7 @@ import Config
 import Types
 import UI
 import JS
+import qualified Data.BitSet as ES
 
 scriptModule :: IsString s => s
 scriptModule = "_HaWK__"
@@ -55,6 +56,7 @@ loadScripts uri = do
   #removeAllScripts cm
   #addScript cm =<< asksGlobal globalScript
   #addScript cm =<< WK.userScriptNew (TL.toStrict $ TLB.toLazyText $ setPropertiesBuilder (HM.fromList
-    [ ("allow", JSON $ J.toJSON $ configAllowLoad conf)
+    [ ("loadSet", JSON $ J.object [ loadElementName l J..= ES.singleton l | l <- [minBound..maxBound] ])
+    , ("allow", JSON $ J.toJSON $ configAllowLoad conf)
     ]) <> "console.log(JSON.stringify(" <> scriptModule <> ".allow));") WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
   mapM_ (#addScript cm) =<< asks hawkScript

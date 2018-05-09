@@ -1,6 +1,14 @@
 namespace _HaWK__ {
 
-  type DomainMap<a> = {$?:a,[d:string]:DomainMap<a>|a|undefined};
+  function uriDomain(u: string|undefined): string|undefined {
+    if (!u)
+      return;
+    const a = document.createElement('a');
+    a.href = u;
+    return a.hostname;
+  }
+
+  type DomainMap<a> = {$?:a,[d:string]:DomainMap<a>|a|undefined}
 
   function lookupDomain<a>(map: DomainMap<a>|undefined, dom: string|undefined): a|undefined {
     if (!map)
@@ -18,24 +26,18 @@ namespace _HaWK__ {
     return v;
   }
 
-  export var allow: DomainMap<string[]>|undefined;
+  type LoadSet = number
+  export var loadSet: {[type:string]:LoadSet}
+  export var allow: DomainMap<LoadSet>|undefined
 
-  type LoadedElement = HTMLElement&{src?:string,href?:string};
-
-  function uriDomain(u: string|undefined): string|undefined {
-    if (!u)
-      return;
-    const a = document.createElement('a');
-    a.href = u;
-    return a.hostname;
-  }
+  type LoadedElement = HTMLElement&{src?:string,href?:string}
 
   function loadAllow(type: string, src: string|undefined): boolean {
     const a = lookupDomain(allow, uriDomain(src));
-    const b = a ? a.includes(type) : false;
-    if (a || !b)
-      console.log((b ? "+" : "-") + " " + (<any>type).padEnd(6) + " " + src);
-    return b;
+    const b = !(<LoadSet>a & loadSet[type]);
+    if (a || b)
+      console.log((b ? "-" : "+") + " " + (<any>type).padEnd(6) + " " + src);
+    return !b;
   }
 
   function initDocument(doc: HTMLDocument): void {

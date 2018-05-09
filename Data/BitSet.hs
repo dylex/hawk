@@ -24,6 +24,7 @@ module Data.BitSet
 
 import Prelude hiding (null, foldMap, foldr, foldl)
 
+import           Control.Applicative ((<|>))
 import qualified Data.Aeson as J
 import           Data.Bits (Bits, bit, testBit, setBit, clearBit, complement, (.|.), (.&.), popCount, FiniteBits, finiteBitSize, countLeadingZeros, countTrailingZeros)
 import           Data.List (foldl')
@@ -32,7 +33,7 @@ import qualified Data.Vector as V
 import           Data.Word (Word)
 
 newtype BitSet a = BitSet Word
-  deriving (Eq, Bits, FiniteBits)
+  deriving (Eq, Bits, FiniteBits, J.ToJSON)
 
 instance Monoid (BitSet a) where
   mempty = empty
@@ -103,8 +104,4 @@ instance (J.FromJSON a, Enum a, Bounded a) => J.FromJSON (BitSet a) where
   parseJSON (J.Bool False) = return empty
   parseJSON (J.Bool True)  = return full
   parseJSON (J.Array v) = fromList <$> V.mapM J.parseJSON v
-  parseJSON v = singleton <$> J.parseJSON v
-
-instance (J.ToJSON a, Enum a) => J.ToJSON (BitSet a) where
-  toJSON = J.toJSON . toList
-  toEncoding = J.toEncoding . toList
+  parseJSON v = BitSet <$> J.parseJSON v <|> singleton <$> J.parseJSON v
