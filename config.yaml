@@ -53,6 +53,10 @@ site:
       travis-ci.org: true
   bikes.oobrien.com:
     allow-load: true
+  mta.info:
+    allow-load:
+      mta.info: true
+      elb.amazonaws.com: [SCRIPT]
 uri-rewrite:
   amg: https://www.allmusic.com/search/artist/
   dd: https://duckduckgo.com/html/?kp=-1&kd=-1&q=

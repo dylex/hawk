@@ -19,10 +19,8 @@ module Domain
 
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Encoding as JE
-import qualified Data.Aeson.Internal as J ((<?>), JSONPathElement(Key))
 import qualified Data.Aeson.Types as J (typeMismatch, toJSONKeyText, contramapToJSONKeyFunction)
 import           Data.Hashable (Hashable)
-import qualified Data.HashMap.Strict as HM
 import           Data.Monoid ((<>))
 import           Data.String (IsString(..))
 import qualified Data.Text as T
@@ -115,21 +113,3 @@ domainPSetRegExp m
 
 type DomainMap = LM.ListMap DomainComponent
 type DomainSet = DomainMap ()
-
-{-
-instance J.ToJSON1 DomainMap where
-  liftToJSON to _ = J.object . map (\(k,v) -> joinDomain (Domain k) J..= to v) . LM.toList
-  liftToEncoding to _ = J.pairs . foldMap (\(k,v) -> joinDomain (Domain k) `JE.pair` to v) . LM.toList
-
-instance J.FromJSON1 DomainMap where
-  liftParseJSON parse _ (J.Object o) =
-    LM.fromList <$> mapM (\(k,v) -> (domainComponents (splitDomain k) ,) <$> parse v J.<?> J.Key k) (HM.toList o)
-  liftParseJSON parse _ v = LM.singleton [] <$> parse v
-
-instance (J.ToJSON a) => J.ToJSON (DomainMap a) where
-  toJSON = J.toJSON1
-  toEncoding = J.toEncoding1
-
-instance (J.FromJSON a) => J.FromJSON (DomainMap a) where
-  parseJSON = J.parseJSON1
-  -}
