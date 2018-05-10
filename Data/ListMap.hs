@@ -7,19 +7,23 @@ module Data.ListMap
   , null
   , singleton
   , insert
+  , insertWith
   , delete
   , alter
   , union
   , unionWith
   , lookup
   , lookupPrefix
+  , lookupPrefixes
+  , lookupFoldPrefixes
   , toList
   , fromList
   ) where
 
 import Prelude hiding (lookup, null, filter)
 
-import           Control.Applicative ((<|>))
+import           Control.Applicative (Alternative, (<|>))
+import qualified Control.Applicative as A
 import           Control.Arrow (first)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Encoding as JE
@@ -73,6 +77,10 @@ alter f (n:d) (ListMap v m) = ListMap v $ M.alter (nonull . alter f d . fold) n 
 insert :: Key k => [k] -> a -> ListMap k a -> ListMap k a
 insert k v = alter (const $ Just v) k
 
+-- |Insert a new entry to the map, using the given function to merge with any existing key.
+insertWith :: Key k => (a -> a -> a) -> [k] -> a -> ListMap k a -> ListMap k a
+insertWith f k v = alter (Just . maybe v (f v)) k
+
 -- |Remove a single entry from the map, if present.
 delete :: Key k => [k] -> ListMap k a -> ListMap k a
 delete = alter (const Nothing)
@@ -95,10 +103,22 @@ lookup :: Key k => [k] -> ListMap k a -> Maybe a
 lookup [] (ListMap v _) = v
 lookup (n:d) (ListMap _ m) = M.lookup n m >>= lookup d
 
--- |Lookup a key or any prefix of that key.
+-- |Lookup a key or any prefix of that key (special case of 'lookupPrefixes').
 lookupPrefix :: Key k => [k] -> ListMap k a -> Maybe a
 lookupPrefix [] (ListMap v _) = v
 lookupPrefix (n:d) (ListMap v m) = (M.lookup n m >>= lookupPrefix d) <|> v
+
+-- |Lookup all prefixes of a key, in most-to-least specific order.
+lookupPrefixes :: (Key k, Alternative f) => [k] -> ListMap k a -> f a
+lookupPrefixes l (ListMap v m) = lp l <|> maybe A.empty pure v where
+  lp [] = A.empty
+  lp (n:d) = maybe A.empty (lookupPrefixes d) $ M.lookup n m
+
+-- |Lookup and fold all prefixes of a key, in most-to-least specific order.
+lookupFoldPrefixes :: (Key k, Monoid a) => [k] -> ListMap k a -> a
+lookupFoldPrefixes l (ListMap v m) = lp l <> fold v where
+  lp [] = mempty
+  lp (n:d) = foldMap (lookupFoldPrefixes d) $ M.lookup n m
 
 toList :: ListMap k a -> [([k],a)]
 toList (ListMap v m) = maybe id ((:) . ([] ,)) v $ foldMap tal $ M.toList m where

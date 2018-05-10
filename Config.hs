@@ -19,6 +19,7 @@ import qualified Data.Aeson as J
 import qualified Data.Aeson.Types as J (Parser, typeMismatch, parseEither)
 import qualified Data.ByteString.Char8 as BSC
 import           Data.Default (Default(def))
+import           Data.Function (on)
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isPrefixOf)
 import           Data.Maybe (fromMaybe, isJust)
@@ -128,8 +129,14 @@ instance Default SiteConfig where
     , configAllowLoad = LM.empty
     }
 
+instance Monoid SiteConfig where
+  mempty = def
+  mappend a b = a
+    { configAllowLoad = on LM.union configAllowLoad a b
+    }
+
 siteConfig :: Domain -> Config -> SiteConfig
-siteConfig dom = fromMaybe def . LM.lookupPrefix (domainComponents dom) . configSite
+siteConfig dom = LM.lookupFoldPrefixes (domainComponents dom) . configSite
 
 instance J.FromJSON PGDatabase where
   parseJSON = J.withObject "database" $ \d -> do
@@ -209,8 +216,8 @@ parserSiteConfig = do
   configCookieAcceptPolicy' .<- "cookie-accept-policy"
   configAllowLoad'          .<~ "allow-load" $ \s -> fmap (`LM.union` s) . parseJSON
 
-parseSiteConfig :: SiteConfig -> J.Value -> J.Parser SiteConfig
-parseSiteConfig initconf = parseObject initconf "site config" parserSiteConfig
+instance J.FromJSON SiteConfig where
+  parseJSON = parseObject def "site config" parserSiteConfig
 
 parseConfig :: Config -> FilePath -> J.Value -> J.Parser Config
 parseConfig initconf conffile = parseObject initconf "config" $ do
@@ -242,9 +249,8 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configURIRewrite'         .<~ "uri-rewrite" $ mergeWith . flip HM.union
   configURIAlias'           .<~ "uri-alias"   $ mergeWith . flip HM.union
   site <- parseSubObject (fromMaybe def $ LM.lookup [] $ configSite initconf) parserSiteConfig
-  configSite'               .<~ "site" $ \s -> fmap (`LM.union` s)
-    . J.liftParseJSON (parseSiteConfig site) undefined
-  modifyObject $ \c -> c{ configSite = LM.insert [] site $ configSite c }
+  configSite'               .<~ "site"        $ mergeWith . flip LM.union
+  modifyObject $ \c -> c{ configSite = LM.insertWith (flip mappend) [] site $ configSite c }
   where
   dir = (takeDirectory conffile </>)
   parsePath = fmap (fmap dir) . parseJSON
