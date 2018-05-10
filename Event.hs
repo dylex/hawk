@@ -9,6 +9,7 @@
 module Event
   ( uriChanged
   , loadStarted
+  , loadCommitted
   , loadFinished
   , targetChanged
   ) where
@@ -32,20 +33,30 @@ import Types
 import Config
 import Database
 import Script
+import URI
 
 useTPGConfig
 
 uriChanged :: Maybe T.Text -> HawkM ()
 uriChanged uri = do
   liftIO $ print uri
-  pol <- asksConfig (configCookieAcceptPolicy . siteConfig uri)
-  liftIO $ print pol
-  cm <- askCookieManager
-  #setAcceptPolicy cm pol
-  loadScripts uri
+  dch <- modifyRef hawkURIDomain $ (,) dom . (dom /=)
+  when dch $ do
+    conf <- asksConfig $ siteConfig dom
+    let pol = configCookieAcceptPolicy conf
+    liftIO $ print pol
+    cm <- askCookieManager
+    #setAcceptPolicy cm pol
+    loadScripts conf
+  where
+  dom = fold $ uriDomain =<< uri
 
 loadStarted :: HawkM ()
 loadStarted = do
+  return ()
+
+loadCommitted :: HawkM ()
+loadCommitted = do
   return ()
 
 loadFinished :: HawkM ()

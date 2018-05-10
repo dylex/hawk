@@ -8,7 +8,6 @@ module Types
   , runHawkM
   , asksGlobal
   , asksConfig
-  , asksSiteConfig
   , askWebView
   , askSettings
   , askWebContext
@@ -36,6 +35,7 @@ import qualified Deque as D
 import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
 
+import Domain
 import Config
 
 data Bindings
@@ -67,6 +67,7 @@ data Hawk = Hawk
   , hawkStatusCount, hawkStatusLeft :: !Gtk.Label
   , hawkWebView :: !WK.WebView
 
+  , hawkURIDomain :: !(IORef Domain)
   , hawkBindings :: !(IORef Bindings)
   , hawkStyleSheets :: !(V.Vector WK.UserStyleSheet)
   , hawkStyleSheet :: !(IORef Int)
@@ -85,11 +86,6 @@ asksGlobal = asks . (. hawkGlobal)
 
 asksConfig :: (Config -> a) -> HawkM a
 asksConfig = asks . (. hawkConfig)
-
-asksSiteConfig :: (SiteConfig -> a) -> HawkM a
-asksSiteConfig f = do
-  uri <- #getUri =<< askWebView
-  asksConfig $ f . siteConfig uri
 
 askWebView :: HawkM WK.WebView
 askWebView = asks hawkWebView

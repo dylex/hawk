@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Domain
   ( Domain(..)
@@ -36,7 +37,7 @@ newtype DomainComponent = DomainComponent{ domainComponentText :: T.Text }
   deriving (Eq, Ord, Hashable, Show, IsString)
 type DomainComponents = [DomainComponent]
 newtype Domain = Domain{ domainComponents :: DomainComponents }
-  deriving (Show)
+  deriving (Eq, Ord, Monoid, Hashable, Show)
 
 splitDomain :: T.Text -> Domain
 splitDomain = Domain . map DomainComponent . de . reverse . T.split ('.'==) where

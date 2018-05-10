@@ -42,7 +42,6 @@ import qualified Data.ListMap as LM
 import qualified Data.PrefixMap as PM
 import qualified Data.BitSet as ES
 import Domain
-import URI
 import JS
 import Util
 import GValue
@@ -129,8 +128,8 @@ instance Default SiteConfig where
     , configAllowLoad = LM.empty
     }
 
-siteConfig :: Maybe T.Text -> Config -> SiteConfig
-siteConfig uri = fromMaybe def . LM.lookupPrefix (maybe [] domainComponents $ uriDomain =<< uri) . configSite
+siteConfig :: Domain -> Config -> SiteConfig
+siteConfig dom = fromMaybe def . LM.lookupPrefix (domainComponents dom) . configSite
 
 instance J.FromJSON PGDatabase where
   parseJSON = J.withObject "database" $ \d -> do
@@ -216,7 +215,7 @@ parseSiteConfig initconf = parseObject initconf "site config" parserSiteConfig
 parseConfig :: Config -> FilePath -> J.Value -> J.Parser Config
 parseConfig initconf conffile = parseObject initconf "config" $ do
   configDatabase'           .<- "database"
-  configSettings'           .<~ "settings" $ \s -> fmap (`HM.union` s) . parseJSON
+  configSettings'           .<~ "settings" $ mergeWith . flip HM.union
   configStyleSheet'         .<~ "style-sheet" $ const $ fmap (fmap dir) . parseSome
   configScript'             .<~ "script"      $ const $ fmap (fmap dir) . parseSome
   configDataDirectory'      .<~ "data-directory" $ const $ \case
@@ -240,8 +239,8 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configUserAgent'          .<~ "user-agent" $ const parseSome
   configPrivateMode'        .<- "private-mode"
   configTLSAccept'          .<- "tls-accept"
-  configURIRewrite'         .<- "uri-rewrite"
-  configURIAlias'           .<- "uri-alias"
+  configURIRewrite'         .<~ "uri-rewrite" $ mergeWith . flip HM.union
+  configURIAlias'           .<~ "uri-alias"   $ mergeWith . flip HM.union
   site <- parseSubObject (fromMaybe def $ LM.lookup [] $ configSite initconf) parserSiteConfig
   configSite'               .<~ "site" $ \s -> fmap (`LM.union` s)
     . J.liftParseJSON (parseSiteConfig site) undefined
@@ -249,6 +248,7 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   where
   dir = (takeDirectory conffile </>)
   parsePath = fmap (fmap dir) . parseJSON
+  mergeWith f = fmap f . parseJSON
 
 instance J.FromJSON Config where
   parseJSON = parseConfig def ""

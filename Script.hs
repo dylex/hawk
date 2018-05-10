@@ -2,12 +2,12 @@ module Script
   ( runScript
   , linkSelect
   , scriptMessageHandler
+  , setPropertiesBuilder
   , loadScripts
   ) where
 
 import           Control.Monad.Reader (asks)
 import qualified Data.Aeson as J
-import qualified Data.HashMap.Strict as HM
 import           Data.Monoid ((<>))
 import           Data.String (IsString)
 import qualified Data.Text as T
@@ -21,7 +21,6 @@ import Config
 import Types
 import UI
 import JS
-import qualified Data.BitSet as ES
 
 scriptModule :: IsString s => s
 scriptModule = "_HaWK__"
@@ -31,11 +30,14 @@ runScript s = do
   wv <- askWebView
   #runJavascript wv s Gio.noCancellable Nothing
 
-setPropertiesBuilder :: HM.HashMap T.Text JSValue -> TLB.Builder
+setPropertiesBuilder :: [(T.Text, JSValue)] -> TLB.Builder
 setPropertiesBuilder = setObjPropertiesBuilder scriptModule
 
+builderText :: TLB.Builder -> T.Text
+builderText = TL.toStrict . TLB.toLazyText
+
 runScriptBuilder :: TLB.Builder -> HawkM ()
-runScriptBuilder = runScript . TL.toStrict . TLB.toLazyText
+runScriptBuilder = runScript . builderText
 
 callScript :: T.Text -> [JSValue] -> HawkM ()
 callScript fun args = runScriptBuilder $
@@ -49,14 +51,12 @@ scriptMessageHandler :: WK.JavascriptResult -> HawkM ()
 scriptMessageHandler _arg =
   passThruBind
 
-loadScripts :: Maybe T.Text -> HawkM ()
-loadScripts uri = do
+loadScripts :: SiteConfig -> HawkM ()
+loadScripts conf = do
   cm <- askUserContentManager
-  conf <- asksConfig $ siteConfig uri
   #removeAllScripts cm
   #addScript cm =<< asksGlobal globalScript
-  #addScript cm =<< WK.userScriptNew (TL.toStrict $ TLB.toLazyText $ setPropertiesBuilder (HM.fromList
-    [ ("loadSet", JSON $ J.object [ loadElementName l J..= ES.singleton l | l <- [minBound..maxBound] ])
-    , ("allow", JSON $ J.toJSON $ configAllowLoad conf)
-    ]) <> "console.log(JSON.stringify(" <> scriptModule <> ".allow));") WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
+  #addScript cm =<< WK.userScriptNew (builderText $ setPropertiesBuilder
+    [ ("allow", JSON $ J.toJSON $ configAllowLoad conf)
+    ] <> "console.log(JSON.stringify(" <> scriptModule <> ".allow));") WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
   mapM_ (#addScript cm) =<< asks hawkScript

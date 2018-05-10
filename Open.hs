@@ -6,6 +6,7 @@ module Open
   ) where
 
 import           Control.Monad (forM, forM_, void)
+import qualified Data.Aeson as J
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy as BSL
@@ -17,6 +18,9 @@ import           Data.IORef (newIORef)
 import           Data.Maybe (isNothing, isJust)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Builder as TLB
+import qualified Data.Text.Lazy.IO as TLIO
 import qualified Data.Text.IO as TIO
 import           Database.PostgreSQL.Typed (pgConnect, pgDisconnect)
 import           System.FilePath (takeExtension)
@@ -33,8 +37,10 @@ import GValue
 import Cookies
 import Bind
 import UI
+import JS
 import Script
 import qualified Data.PrefixMap as PM
+import qualified Data.BitSet as ES
 import URI
 import Domain
 import Scheme
@@ -62,9 +68,13 @@ globalOpen = do
   let globalUserAgent = T.pack $ "hawk (X11; " <> SI.os <> " " <> SI.arch <> ") WebKit/" <> show vmaj <> "." <> show vmin
   css <- TIO.readFile =<< getDataFileName "hawk.css"
   globalStyleSheet <- WK.userStyleSheetNew css WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
-  js <- TIO.readFile =<< getDataFileName "hawk.js"
-  globalScript <- WK.userScriptNew js WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
+  js <- TLIO.readFile =<< getDataFileName "hawk.js"
+  globalScript <- WK.userScriptNew (TL.toStrict $ js <> jsconf) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
   return Global{..}
+  where
+  jsconf = TLB.toLazyText $ TLB.singleton '\n' <> setPropertiesBuilder
+    [ ("loadSet", JSON $ J.object [ loadElementName l J..= ES.singleton l | l <- [minBound..maxBound] ])
+    ]
 
 hawkOpen :: Global -> Config -> IO Hawk
 hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
@@ -160,6 +170,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   #setCustomCharset hawkWebView configCharset
   #packStart hawkTopBox hawkWebView True True 0
 
+  hawkURIDomain <- newIORef " "
   hawkBindings <- newIORef def
   hawkStyleSheet <- newIORef undefined
   hawkPrivateMode <- newIORef configPrivateMode
@@ -173,10 +184,10 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   _ <- G.on hawkWebView #loadChanged $ \ev -> do
     print ev
     #setText hawkStatusLoad =<< case ev of
-      WK.LoadEventStarted -> "WAIT" <$ run loadStarted
-      WK.LoadEventRedirected -> "REDIR" <$ run loadStarted
-      WK.LoadEventCommitted -> return "RECV"
-      WK.LoadEventFinished -> "" <$ run loadFinished
+      WK.LoadEventStarted     -> "WAIT"  <$ run loadStarted
+      WK.LoadEventRedirected  -> "REDIR" <$ run loadStarted
+      WK.LoadEventCommitted   -> "RECV"  <$ run loadCommitted
+      WK.LoadEventFinished    -> ""      <$ run loadFinished
       (WK.AnotherLoadEvent x) -> return $ T.pack $ show x
   _ <- G.on hawkWebView #loadFailed $ \_ _ _ -> do
     #setText hawkStatusLoad "ERR"
@@ -218,9 +229,9 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   True <- #registerScriptMessageHandler hawkUserContentManager "hawk"
 
   run $ do
-    uriChanged Nothing
     loadStyleSheet $ \_ _ -> 0
     loadCookies
+    uriChanged Nothing
     mapM_ hawkGoto configURI
 
   #showAll hawkWindow
