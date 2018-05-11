@@ -46,7 +46,7 @@ uriChanged uri = do
     let pol = configCookieAcceptPolicy conf
     liftIO $ print pol
     cm <- askCookieManager
-    #setAcceptPolicy cm pol
+    mapM_ (#setAcceptPolicy cm) pol
     loadScripts conf
   where
   dom = fold $ uriDomain =<< uri

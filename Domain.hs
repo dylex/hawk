@@ -8,6 +8,7 @@
 
 module Domain
   ( Domain(..)
+  , DomainComponents
   , splitDomain
   , splitStringDomain
   , joinDomain

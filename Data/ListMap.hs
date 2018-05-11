@@ -13,6 +13,7 @@ module Data.ListMap
   , union
   , unionWith
   , lookup
+  , lookupSubtree
   , lookupPrefix
   , lookupPrefixes
   , lookupFoldPrefixes
@@ -102,6 +103,11 @@ union (ListMap v1 m1) (ListMap v2 m2) = ListMap (v1 <|> v2) (M.unionWith union m
 lookup :: Key k => [k] -> ListMap k a -> Maybe a
 lookup [] (ListMap v _) = v
 lookup (n:d) (ListMap _ m) = M.lookup n m >>= lookup d
+
+-- |Lookup an exact key in the map and return it and its subtree.
+lookupSubtree :: Key k => [k] -> ListMap k a -> Maybe (ListMap k a)
+lookupSubtree [] m = Just m
+lookupSubtree (n:d) (ListMap _ m) = M.lookup n m >>= lookupSubtree d
 
 -- |Lookup a key or any prefix of that key (special case of 'lookupPrefixes').
 lookupPrefix :: Key k => [k] -> ListMap k a -> Maybe a

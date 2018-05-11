@@ -13,6 +13,7 @@ module Config
   , useTPGConfig
   ) where
 
+import           Control.Applicative ((<|>))
 import           Control.Arrow (left)
 import           Control.Monad (MonadPlus, mzero)
 import qualified Data.Aeson as J
@@ -89,8 +90,8 @@ data Config = Config
   }
 
 data SiteConfig = SiteConfig
-  { configCookieAcceptPolicy :: WK.CookieAcceptPolicy
-  , configAllowLoad :: DomainMap (ES.BitSet LoadElement)
+  { configCookieAcceptPolicy :: !(Maybe WK.CookieAcceptPolicy)
+  , configAllowLoad :: !(DomainMap (ES.BitSet LoadElement))
   }
 
 makeLenses' ''Config
@@ -125,18 +126,34 @@ instance Default Config where
 
 instance Default SiteConfig where
   def = SiteConfig
-    { configCookieAcceptPolicy = WK.CookieAcceptPolicyNever
+    { configCookieAcceptPolicy = Nothing -- WK.CookieAcceptPolicyNever
     , configAllowLoad = LM.empty
     }
 
 instance Monoid SiteConfig where
   mempty = def
   mappend a b = a
-    { configAllowLoad = on LM.union configAllowLoad a b
+    { configCookieAcceptPolicy = on (<|>)    configCookieAcceptPolicy a b
+    , configAllowLoad          = on LM.union configAllowLoad          a b
     }
 
+setSelf :: DomainComponents -> DomainMap a -> DomainMap a
+setSelf d m =
+  maybe id (ins d) (LM.lookup s m) $
+  -- maybe id (ins (take 2 d)) (LM.lookup ss m)
+  m
+  where
+  s = domainComponents "."
+  -- ss = domainComponents ".."
+  ins = LM.insertWith $ \_ -> id
+
+setSelfSite :: DomainComponents -> SiteConfig -> SiteConfig
+setSelfSite d c = c
+  { configAllowLoad = setSelf d $ configAllowLoad c
+  }
+
 siteConfig :: Domain -> Config -> SiteConfig
-siteConfig dom = LM.lookupFoldPrefixes (domainComponents dom) . configSite
+siteConfig (Domain d) = setSelfSite d . LM.lookupFoldPrefixes d . configSite
 
 instance J.FromJSON PGDatabase where
   parseJSON = J.withObject "database" $ \d -> do
@@ -250,7 +267,7 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configURIAlias'           .<~ "uri-alias"   $ mergeWith . flip HM.union
   site <- parseSubObject (fromMaybe def $ LM.lookup [] $ configSite initconf) parserSiteConfig
   configSite'               .<~ "site"        $ mergeWith . flip LM.union
-  modifyObject $ \c -> c{ configSite = LM.insertWith (flip mappend) [] site $ configSite c }
+  modifyObject $ \c -> c{ configSite = LM.insertWith mappend [] site $ configSite c }
   where
   dir = (takeDirectory conffile </>)
   parsePath = fmap (fmap dir) . parseJSON

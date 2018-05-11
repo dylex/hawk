@@ -92,6 +92,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   hawkStatusBox <- G.new Gtk.Box
     [ #orientation G.:= Gtk.OrientationHorizontal ]
+  #setSizeRequest hawkStatusBox (-1) 34
   hawkStatusStyle <- setStyle hawkStatusBox "*{}"
   #packEnd hawkTopBox hawkStatusBox False False 0
 
@@ -170,7 +171,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   #setCustomCharset hawkWebView configCharset
   #packStart hawkTopBox hawkWebView True True 0
 
-  hawkURIDomain <- newIORef " "
+  hawkURIDomain <- newIORef "."
   hawkBindings <- newIORef def
   hawkStyleSheet <- newIORef undefined
   hawkPrivateMode <- newIORef configPrivateMode
