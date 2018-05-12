@@ -8,6 +8,7 @@ module Config
   ( Config(..)
   , SiteConfig(..)
   , siteConfig
+  , defaultSiteConfig
   , loadConfigFile
   , baseConfigFile
   , useTPGConfig
@@ -131,8 +132,11 @@ instance Default SiteConfig where
     }
 
 instance Monoid SiteConfig where
-  mempty = def
-  mappend a b = a
+  mempty = SiteConfig
+    { configCookieAcceptPolicy = Nothing
+    , configAllowLoad = LM.empty
+    }
+  mappend a b = SiteConfig
     { configCookieAcceptPolicy = on (<|>)    configCookieAcceptPolicy a b
     , configAllowLoad          = on LM.union configAllowLoad          a b
     }
@@ -153,7 +157,12 @@ setSelfSite d c = c
   }
 
 siteConfig :: Domain -> Config -> SiteConfig
-siteConfig (Domain d) = setSelfSite d . LM.lookupFoldPrefixes d . configSite
+siteConfig (Domain d) = setSelfSite d
+  . LM.lookupFoldPrefixes d
+  . configSite
+
+defaultSiteConfig :: Config -> SiteConfig
+defaultSiteConfig = siteConfig ""
 
 instance J.FromJSON PGDatabase where
   parseJSON = J.withObject "database" $ \d -> do
@@ -175,6 +184,9 @@ instance J.FromJSON PGDatabase where
       , pgDBDebug = debug
       , pgDBParams = [("search_path", "hawk,global")]
       }
+
+instance Default WK.CookieAcceptPolicy where
+  def = WK.CookieAcceptPolicyNever
 
 instance J.FromJSON WK.CookieAcceptPolicy where
   parseJSON J.Null                      = return WK.CookieAcceptPolicyNever

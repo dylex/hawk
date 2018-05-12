@@ -18,6 +18,7 @@ DECLARE
 	t ALIAS FOR $2;
 	i INTEGER;
 BEGIN
+	-- TODO: collapse update over query/target
 	INSERT INTO hawk.browse (uri, title) VALUES (u, t)
 		ON CONFLICT (uri) DO
 		UPDATE SET visits = browse.visits + excluded.visits, title = excluded.title, last = excluded.last

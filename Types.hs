@@ -18,9 +18,11 @@ module Types
   , readRef
   , writeRef
   , modifyRef
+  , modifyRefId
   , modifyRef_
   ) where
 
+import           Control.Monad (join)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ReaderT, runReaderT, asks)
 import           Data.Default (Default(def))
@@ -74,6 +76,7 @@ data Hawk = Hawk
   , hawkScript :: !(Maybe WK.UserScript)
   , hawkPrivateMode :: !(IORef Bool)
   , hawkPromptHistory :: !(IORef (HM.HashMap T.Text PromptHistory))
+  , hawkSiteOverride :: !(IORef SiteConfig)
   }
 
 type HawkM = ReaderT Hawk IO
@@ -121,6 +124,9 @@ modifyRef :: (Hawk -> IORef a) -> (a -> (a, b)) -> HawkM b
 modifyRef f m = do
   v <- asks f
   liftIO $ atomicModifyIORef' v m
+
+modifyRefId :: (Hawk -> IORef a) -> (a -> a) -> HawkM a
+modifyRefId f = modifyRef f . (join (,) .)
 
 modifyRef_ :: (Hawk -> IORef a) -> (a -> a) -> HawkM ()
 modifyRef_ f = modifyRef f . ((, ()) .)

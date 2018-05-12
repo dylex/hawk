@@ -12,6 +12,7 @@ module Event
   , loadCommitted
   , loadFinished
   , targetChanged
+  , applySiteConfig
   ) where
 
 import           Control.Monad (unless, when)
@@ -34,20 +35,27 @@ import Config
 import Database
 import Script
 import URI
+import Domain
 
 useTPGConfig
+
+applySiteConfigFor :: Domain -> HawkM ()
+applySiteConfigFor dom = do
+  conf <- mappend <$> readRef hawkSiteOverride <*> asksConfig (siteConfig dom)
+  let pol = configCookieAcceptPolicy conf
+  liftIO $ print pol
+  cm <- askCookieManager
+  mapM_ (#setAcceptPolicy cm) pol
+  loadScripts conf
+
+applySiteConfig :: HawkM ()
+applySiteConfig = applySiteConfigFor =<< readRef hawkURIDomain
 
 uriChanged :: Maybe T.Text -> HawkM ()
 uriChanged uri = do
   liftIO $ print uri
   dch <- modifyRef hawkURIDomain $ (,) dom . (dom /=)
-  when dch $ do
-    conf <- asksConfig $ siteConfig dom
-    let pol = configCookieAcceptPolicy conf
-    liftIO $ print pol
-    cm <- askCookieManager
-    mapM_ (#setAcceptPolicy cm) pol
-    loadScripts conf
+  when dch $ applySiteConfigFor dom
   where
   dom = fold $ uriDomain =<< uri
 

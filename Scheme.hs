@@ -48,7 +48,7 @@ listBrowse b = H.table $ do
   H.tbody $
     forM_ b $ \(u, t, l) ->
       H.tr $ do
-        H.td $ mapM_ (H.string . formatTime defaultTimeLocale "%F %T" . Unsafe.unsafeDupablePerformIO . utcToLocalZonedTime) l
+        H.td H.! HA.style "white-space:nowrap" $ mapM_ (H.string . formatTime defaultTimeLocale "%F %T" . Unsafe.unsafeDupablePerformIO . utcToLocalZonedTime) l
         H.td $ H.a H.! HA.href (H.textValue u) $ H.text (fromMaybe u t)
 
 hawkURIScheme :: WK.URISchemeRequest -> HawkM ()

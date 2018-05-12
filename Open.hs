@@ -176,6 +176,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   hawkStyleSheet <- newIORef undefined
   hawkPrivateMode <- newIORef configPrivateMode
   hawkPromptHistory <- newIORef HM.empty
+  hawkSiteOverride <- newIORef mempty
 
   let hawk = Hawk{..}
       run = runHawkM hawk
@@ -230,7 +231,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   True <- #registerScriptMessageHandler hawkUserContentManager "hawk"
 
   run $ do
-    loadStyleSheet $ \_ _ -> 0
+    loadStyleSheet 0
     loadCookies
     uriChanged Nothing
     mapM_ hawkGoto configURI

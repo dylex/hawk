@@ -8,14 +8,12 @@ module Bind
   ) where
 
 import           Control.Arrow (first, second)
-import           Control.Monad (join, unless, void)
-import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad (unless, void)
 import           Control.Monad.Reader (ask, asks)
 import           Data.Bits ((.|.))
 import           Data.Char (isUpper)
 import           Data.Default (def)
 import           Data.Foldable (fold)
-import           Data.Function (on)
 import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
 import           Data.Int (Int32)
@@ -27,7 +25,6 @@ import qualified Data.Vector as V
 import           Data.Word (Word32)
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 
-import qualified GI.Gio as Gio
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
@@ -38,6 +35,7 @@ import Prompt
 import Cookies
 import Script
 import UI
+import Event
 
 commandMode :: HawkM ()
 commandMode = do
@@ -99,17 +97,29 @@ zoom f = do
   x <- #getZoomLevel wv
   setStatusLeft $ T.pack $ "zoom-level " ++ show x
 
+indexMod :: V.Vector a -> Int -> a
+indexMod v i = v V.! (i `mod` V.length v)
+
+toggle' :: Eq a => V.Vector a -> V.Vector a -> a -> HawkM a
+toggle' opts opts' cur = maybe
+  (indexMod opts $ maybe 0 succ $ V.elemIndex cur opts)
+  (indexMod opts' . fromIntegral) <$> countMaybe
+
+toggle :: Eq a => V.Vector a -> a -> HawkM a
+toggle opts = toggle' opts opts
+
+enums :: (Enum a, Bounded a) => V.Vector a
+enums = V.enumFromTo minBound maxBound
+
 toggleSetting :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, GA.AttrSetC info WK.Settings attr a, Eq a, Show a) => GA.AttrLabelProxy attr -> V.Vector a -> HawkM ()
 toggleSetting attr opts = do
   sets <- askSettings
-  i <- maybe
-    (maybe 0 succ . (`V.elemIndex` opts) <$> G.get sets attr)
-    (return . fromIntegral) =<< countMaybe
-  G.set sets [attr G.:= opts V.! (i `mod` V.length opts)]
+  v <- toggle opts =<< G.get sets attr
+  G.set sets [attr G.:= v]
   settingStatus attr
 
 toggleSettingBool :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr Bool, GA.AttrSetC info WK.Settings attr Bool) => GA.AttrLabelProxy attr -> HawkM ()
-toggleSettingBool attr = toggleSetting attr $ V.enumFromTo False True
+toggleSettingBool attr = toggleSetting attr enums
 
 toggleUserAgent :: HawkM ()
 toggleUserAgent = do
@@ -118,32 +128,27 @@ toggleUserAgent = do
   toggleSetting #userAgent $ V.cons glob ua
 
 toggleStyleSheet :: HawkM ()
-toggleStyleSheet =
-  loadStyleSheet . maybe (flip $ on mod succ) (const . const . pred . fromIntegral) =<< countMaybe
+toggleStyleSheet = do
+  n <- V.length <$> asks hawkStyleSheets
+  loadStyleSheet =<< toggle (V.enumFromTo (-1) (pred n)) =<< readRef hawkStyleSheet
 
 togglePrivateMode :: HawkM ()
 togglePrivateMode = do
-  c <- countMaybe
-  p <- modifyRef hawkPrivateMode $ join (,) . maybe not (const . (1 ==)) c
-  setStatusLeft $ T.pack $ "private-mode " ++ show p
+  v <- toggle enums =<< readRef hawkPrivateMode
+  writeRef hawkPrivateMode v
+  setStatusLeft $ T.pack $ "private-mode " ++ show v
 
 toggleCookiePolicy :: HawkM ()
 toggleCookiePolicy = do
-  cm <- askCookieManager
-  stat <- asks hawkStatusLeft
-  let set p = do
-        #setAcceptPolicy cm p
-        #setText stat $ T.pack $ "cookie-accept-policy " ++ show p
-  maybe
-    (#getAcceptPolicy cm Gio.noCancellable $ Just $ \_ cb ->
-      set . next =<< #getAcceptPolicyFinish cm cb)
-    (liftIO . set . pol) =<< countMaybe
+  c <- configCookieAcceptPolicy <$> readRef hawkSiteOverride
+  d <- asksConfig $ configCookieAcceptPolicy . defaultSiteConfig
+  let opts' = opts \\ [Just WK.CookieAcceptPolicyAlways, d]
+  v <- toggle' (V.fromList opts') (V.fromList opts) c
+  modifyRef_ hawkSiteOverride $ \o -> o{ configCookieAcceptPolicy = v }
+  setStatusLeft $ T.pack $ "cookie-accept-policy " ++ maybe "config" show v
+  applySiteConfig
   where
-  pol 0 = WK.CookieAcceptPolicyNever
-  pol 2 = WK.CookieAcceptPolicyAlways
-  pol _ = WK.CookieAcceptPolicyNoThirdParty
-  next WK.CookieAcceptPolicyNever = WK.CookieAcceptPolicyNoThirdParty
-  next _ = WK.CookieAcceptPolicyNever
+  opts = Nothing : map Just [WK.CookieAcceptPolicyNever, WK.CookieAcceptPolicyNoThirdParty, WK.CookieAcceptPolicyAlways]
 
 cookiesSave :: HawkM ()
 cookiesSave = do
