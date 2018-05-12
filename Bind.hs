@@ -19,6 +19,7 @@ import qualified Data.GI.Base.Attributes as GA
 import           Data.Int (Int32)
 import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -36,6 +37,9 @@ import Cookies
 import Script
 import UI
 import Event
+import JS
+import qualified Data.ListMap as LM
+import qualified Data.BitSet as ES
 
 commandMode :: HawkM ()
 commandMode = do
@@ -156,6 +160,23 @@ cookiesSave = do
   uri <- #getUri wv
   prompt def{ promptPrefix = "save cookies for", promptPurpose = Gtk.InputPurposeUrl, promptInit = fold uri } saveCookies
 
+toggleAllowLoad :: LoadElement -> HawkM ()
+toggleAllowLoad e = do
+  d <- asksConfig $ fold . LM.lookup [] . configAllowLoad . defaultSiteConfig
+  c <- fromMaybe d . LM.lookup [] . configAllowLoad <$> readRef hawkSiteOverride
+  v <- toggle enums $ ES.member e c
+  modifyRef_ hawkSiteOverride $ \o -> o{ configAllowLoad = LM.insert [] (bs v c) $ configAllowLoad o }
+  setStatusLeft $ "allow-load " <> loadElementName e <> T.pack (' ' : show v)
+  applySiteConfig
+  where
+  bs True  = ES.insert e
+  bs False = ES.delete e
+
+clearAllowLoad :: HawkM ()
+clearAllowLoad = do
+  modifyRef_ hawkSiteOverride $ \o -> o{ configAllowLoad = LM.delete [] $ configAllowLoad o }
+  setStatusLeft $ "allow-load config"
+
 backForward :: Int32 -> HawkM ()
 backForward 0 = return ()
 backForward (-1) = #goBack =<< askWebView
@@ -225,6 +246,7 @@ commandBinds = Map.fromList $
   , (([], 'p'), paste hawkGoto)
   , (([mod1], 'p'), togglePrivateMode)
   , (([], 'G'),   runScript "window.scrollTo({top:document.body.scrollHeight})")
+  , (([mod1], 'f'), toggleAllowLoad LoadIFRAME)
   , (([mod1], 'c'), toggleCookiePolicy)
   , (([ctrl, mod1], 'c'), mapM_ saveCookies =<< #getUri =<< askWebView)
   , (([ctrl, mod1], 'C'), cookiesSave)
@@ -247,6 +269,8 @@ commandBinds = Map.fromList $
   , (([], 'n'), runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
   , (([mod1], 'h'), hawkGoto "hawk:history")
+  , (([mod1], 's'), toggleAllowLoad LoadSCRIPT)
+  , (([mod1], '-'), clearAllowLoad)
 
   , (([], 'Q'), hawkClose)
   , (([], 'J'), prompt def{ promptPrefix = "js" } runScript)

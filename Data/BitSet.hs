@@ -12,6 +12,7 @@ module Data.BitSet
   , findMin
   , findMax
   , insert
+  , delete
   , union
   , intersection
   , difference
@@ -66,6 +67,9 @@ findMin x = toEnum $ countTrailingZeros x
 
 insert :: Enum a => a -> BitSet a -> BitSet a
 insert a x = setBit x $ fromEnum a
+
+delete :: Enum a => a -> BitSet a -> BitSet a
+delete a x = clearBit x $ fromEnum a
 
 union :: BitSet a -> BitSet a -> BitSet a
 union = (.|.)
