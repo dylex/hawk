@@ -104,7 +104,8 @@ prompt Prompt{..} run = do
       Gdk.KEY_ISO_Left_Tab -> comp True
       Gdk.KEY_Up   -> hist $ \t d -> maybe (d, t) (first (D.snoc t) . swap) $ D.uncons d
       Gdk.KEY_Down -> hist $ \t d -> maybe (d, t) (first (D.cons t) . swap) $ D.unsnoc d
-      _ -> return False
+      Gdk.KEY_Shift_L -> return False -- TODO: ignore other modifiers
+      _ -> False <$ writeIORef ctr Nothing
 
   #show ent
   #grabFocus ent
