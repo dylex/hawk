@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Bind
@@ -8,6 +9,7 @@ module Bind
   ) where
 
 import           Control.Arrow (first, second)
+import qualified Control.Lens as Lens
 import           Control.Monad (unless, void)
 import           Control.Monad.Reader (ask, asks)
 import           Data.Bits ((.|.))
@@ -19,7 +21,7 @@ import qualified Data.GI.Base.Attributes as GA
 import           Data.Int (Int32)
 import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromMaybe)
+import           Data.Maybe (fromMaybe, fromJust)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -136,23 +138,30 @@ toggleStyleSheet = do
   n <- V.length <$> asks hawkStyleSheets
   loadStyleSheet =<< toggle (V.enumFromTo (-1) (pred n)) =<< readRef hawkStyleSheet
 
-togglePrivateMode :: HawkM ()
-togglePrivateMode = do
-  v <- toggle enums =<< readRef hawkPrivateMode
-  writeRef hawkPrivateMode v
-  setStatusLeft $ T.pack $ "private-mode " ++ show v
+modifySiteOverride :: Lens.Lens' SiteConfig a -> (a -> a -> HawkM a) -> HawkM a
+modifySiteOverride f m = do
+  d <- asksConfig $ (Lens.^. f) . defaultSiteConfig
+  c <- (Lens.^. f) <$> readRef hawkSiteOverride
+  v <- m d c
+  modifyRef_ hawkSiteOverride $ f Lens..~ v
+  reapplySiteConfig
+  return v
+
+toggleSiteOverride :: (Eq a, Show a) => T.Text -> Lens.Lens' SiteConfig (Maybe a) -> V.Vector a -> [a] -> HawkM ()
+toggleSiteOverride name f opts noopts = do
+  v <- modifySiteOverride f $ \d c -> do
+    let jopts = Nothing `V.cons` (Just <$> opts)
+        opts' = V.fromList $ V.toList jopts \\ (d : map Just noopts)
+    toggle' opts' jopts c
+  setStatusLeft $ name <> T.pack (' ' : maybe "config" show v)
+
+toggleKeepHistory :: HawkM ()
+toggleKeepHistory = toggleSiteOverride "keep-history" configKeepHistory' enums []
 
 toggleCookiePolicy :: HawkM ()
-toggleCookiePolicy = do
-  c <- configCookieAcceptPolicy <$> readRef hawkSiteOverride
-  d <- asksConfig $ configCookieAcceptPolicy . defaultSiteConfig
-  let opts' = opts \\ [Just WK.CookieAcceptPolicyAlways, d]
-  v <- toggle' (V.fromList opts') (V.fromList opts) c
-  modifyRef_ hawkSiteOverride $ \o -> o{ configCookieAcceptPolicy = v }
-  setStatusLeft $ T.pack $ "cookie-accept-policy " ++ maybe "config" show v
-  applySiteConfig
-  where
-  opts = Nothing : map Just [WK.CookieAcceptPolicyNever, WK.CookieAcceptPolicyNoThirdParty, WK.CookieAcceptPolicyAlways]
+toggleCookiePolicy = toggleSiteOverride "cookie-accept-policy" configCookieAcceptPolicy'
+  (V.fromList [WK.CookieAcceptPolicyNever, WK.CookieAcceptPolicyNoThirdParty, WK.CookieAcceptPolicyAlways])
+  [WK.CookieAcceptPolicyAlways]
 
 cookiesSave :: HawkM ()
 cookiesSave = do
@@ -162,13 +171,15 @@ cookiesSave = do
 
 toggleAllowLoad :: LoadElement -> HawkM ()
 toggleAllowLoad e = do
-  d <- asksConfig $ fold . LM.lookup [] . configAllowLoad . defaultSiteConfig
-  c <- fromMaybe d . LM.lookup [] . configAllowLoad <$> readRef hawkSiteOverride
-  v <- toggle enums $ ES.member e c
-  modifyRef_ hawkSiteOverride $ \o -> o{ configAllowLoad = LM.insert [] (bs v c) $ configAllowLoad o }
-  setStatusLeft $ "allow-load " <> loadElementName e <> T.pack (' ' : show v)
-  applySiteConfig
+  v <- modifySiteOverride configAllowLoad' $ \d c -> do
+    let d' = fold $ get d
+        c' = fromMaybe d' $ get c
+    v <- toggle enums $ mem c'
+    return $ LM.insert [] (bs v c') c
+  setStatusLeft $ "allow-load " <> loadElementName e <> T.pack (' ' : show (mem $ fromJust $ get v))
   where
+  get = LM.lookup []
+  mem = ES.member e
   bs True  = ES.insert e
   bs False = ES.delete e
 
@@ -244,7 +255,7 @@ commandBinds = Map.fromList $
   , (([], '_'), zoom (subtract 0.1))
 
   , (([], 'p'), paste hawkGoto)
-  , (([mod1], 'p'), togglePrivateMode)
+  , (([mod1], 'p'), toggleKeepHistory)
   , (([], 'G'),   runScript "window.scrollTo({top:document.body.scrollHeight})")
   , (([mod1], 'f'), toggleAllowLoad LoadIFRAME)
   , (([mod1], 'c'), toggleCookiePolicy)

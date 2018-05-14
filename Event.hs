@@ -12,14 +12,14 @@ module Event
   , loadCommitted
   , loadFinished
   , targetChanged
-  , applySiteConfig
+  , reapplySiteConfig
   ) where
 
-import           Control.Monad (unless, when)
+import           Control.Monad (when)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (asks)
 import           Data.Bits ((.&.))
-import           Data.Foldable (fold)
+import           Data.Foldable (fold, or)
 import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
 import           Data.Int (Int32)
@@ -39,23 +39,28 @@ import Domain
 
 useTPGConfig
 
-applySiteConfigFor :: Domain -> HawkM ()
-applySiteConfigFor dom = do
-  conf <- mappend <$> readRef hawkSiteOverride <*> asksConfig (siteConfig dom)
+siteConfigFor :: Domain -> HawkM SiteConfig
+siteConfigFor dom = mappend <$> readRef hawkSiteOverride <*> asksConfig (siteConfig dom)
+
+askSiteConfig :: HawkM SiteConfig
+askSiteConfig = siteConfigFor =<< readRef hawkURIDomain
+
+applySiteConfig :: SiteConfig -> HawkM ()
+applySiteConfig conf = do
   let pol = configCookieAcceptPolicy conf
   liftIO $ print pol
   cm <- askCookieManager
   mapM_ (#setAcceptPolicy cm) pol
   loadScripts conf
 
-applySiteConfig :: HawkM ()
-applySiteConfig = applySiteConfigFor =<< readRef hawkURIDomain
+reapplySiteConfig :: HawkM ()
+reapplySiteConfig = applySiteConfig =<< askSiteConfig
 
 uriChanged :: Maybe T.Text -> HawkM ()
 uriChanged uri = do
   liftIO $ print uri
   dch <- modifyRef hawkURIDomain $ (,) dom . (dom /=)
-  when dch $ applySiteConfigFor dom
+  when dch $ applySiteConfig =<< siteConfigFor dom
   where
   dom = fold $ uriDomain =<< uri
 
@@ -69,8 +74,8 @@ loadCommitted = do
 
 loadFinished :: HawkM ()
 loadFinished = do
-  p <- readRef hawkPrivateMode
-  unless p $ do
+  conf <- askSiteConfig
+  when (or $ configKeepHistory conf) $ do
     wv <- askWebView
     uri <- #getUri wv
     when (any (T.isPrefixOf "http") uri) $ do

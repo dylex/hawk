@@ -74,7 +74,6 @@ data Hawk = Hawk
   , hawkStyleSheets :: !(V.Vector WK.UserStyleSheet)
   , hawkStyleSheet :: !(IORef Int)
   , hawkScript :: !(Maybe WK.UserScript)
-  , hawkPrivateMode :: !(IORef Bool)
   , hawkPromptHistory :: !(IORef (HM.HashMap T.Text PromptHistory))
   , hawkSiteOverride :: !(IORef SiteConfig)
   }

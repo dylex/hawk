@@ -174,7 +174,6 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   hawkURIDomain <- newIORef "."
   hawkBindings <- newIORef def
   hawkStyleSheet <- newIORef undefined
-  hawkPrivateMode <- newIORef configPrivateMode
   hawkPromptHistory <- newIORef HM.empty
   hawkSiteOverride <- newIORef mempty
 

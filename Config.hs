@@ -7,6 +7,9 @@
 module Config
   ( Config(..)
   , SiteConfig(..)
+  , configAllowLoad'
+  , configKeepHistory'
+  , configCookieAcceptPolicy'
   , siteConfig
   , defaultSiteConfig
   , loadConfigFile
@@ -21,6 +24,7 @@ import qualified Data.Aeson as J
 import qualified Data.Aeson.Types as J (Parser, typeMismatch, parseEither)
 import qualified Data.ByteString.Char8 as BSC
 import           Data.Default (Default(def))
+import           Data.Foldable (fold)
 import           Data.Function (on)
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isPrefixOf)
@@ -82,7 +86,6 @@ data Config = Config
 
   -- Hawk
   , configUserAgent :: !(V.Vector T.Text)
-  , configPrivateMode :: !Bool
   , configTLSAccept :: !DomainPSet
   , configURIRewrite :: !(HM.HashMap T.Text T.Text)
   , configURIAlias :: !(HM.HashMap T.Text T.Text)
@@ -92,6 +95,7 @@ data Config = Config
 
 data SiteConfig = SiteConfig
   { configCookieAcceptPolicy :: !(Maybe WK.CookieAcceptPolicy)
+  , configKeepHistory :: !(Maybe Bool)
   , configAllowLoad :: !(DomainMap (ES.BitSet LoadElement))
   }
 
@@ -118,26 +122,28 @@ instance Default Config where
     , configEditable = False
     , configZoomLevel = 1
     , configURI = Nothing
-    , configPrivateMode = False
     , configTLSAccept = PM.empty
     , configURIRewrite = HM.empty
     , configURIAlias = HM.empty
-    , configSite = LM.empty
+    , configSite = LM.singleton [] def
     }
 
 instance Default SiteConfig where
   def = SiteConfig
-    { configCookieAcceptPolicy = Nothing -- WK.CookieAcceptPolicyNever
-    , configAllowLoad = LM.empty
+    { configCookieAcceptPolicy = Just WK.CookieAcceptPolicyNever
+    , configKeepHistory = Just True
+    , configAllowLoad = LM.singleton [] ES.empty
     }
 
 instance Monoid SiteConfig where
   mempty = SiteConfig
     { configCookieAcceptPolicy = Nothing
+    , configKeepHistory = Nothing
     , configAllowLoad = LM.empty
     }
   mappend a b = SiteConfig
     { configCookieAcceptPolicy = on (<|>)    configCookieAcceptPolicy a b
+    , configKeepHistory        = on (<|>)    configKeepHistory        a b
     , configAllowLoad          = on LM.union configAllowLoad          a b
     }
 
@@ -243,10 +249,11 @@ parseSome v = getSome <$> parseJSON v
 parserSiteConfig :: ObjectParser SiteConfig
 parserSiteConfig = do
   configCookieAcceptPolicy' .<- "cookie-accept-policy"
+  configKeepHistory'        .<- "keep-history"
   configAllowLoad'          .<~ "allow-load" $ \s -> fmap (`LM.union` s) . parseJSON
 
 instance J.FromJSON SiteConfig where
-  parseJSON = parseObject def "site config" parserSiteConfig
+  parseJSON = parseObject mempty "site config" parserSiteConfig
 
 parseConfig :: Config -> FilePath -> J.Value -> J.Parser Config
 parseConfig initconf conffile = parseObject initconf "config" $ do
@@ -273,11 +280,10 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configZoomLevel'          .<- "zoom-level"
   configURI'                .<- "uri"
   configUserAgent'          .<~ "user-agent" $ const parseSome
-  configPrivateMode'        .<- "private-mode"
   configTLSAccept'          .<- "tls-accept"
   configURIRewrite'         .<~ "uri-rewrite" $ mergeWith . flip HM.union
   configURIAlias'           .<~ "uri-alias"   $ mergeWith . flip HM.union
-  site <- parseSubObject (fromMaybe def $ LM.lookup [] $ configSite initconf) parserSiteConfig
+  site <- parseSubObject (fold $ LM.lookup [] $ configSite initconf) parserSiteConfig
   configSite'               .<~ "site"        $ mergeWith . flip LM.union
   modifyObject $ \c -> c{ configSite = LM.insertWith mappend [] site $ configSite c }
   where
