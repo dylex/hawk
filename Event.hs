@@ -48,7 +48,6 @@ askSiteConfig = siteConfigFor =<< readRef hawkURIDomain
 applySiteConfig :: SiteConfig -> HawkM ()
 applySiteConfig conf = do
   let pol = configCookieAcceptPolicy conf
-  liftIO $ print pol
   cm <- askCookieManager
   mapM_ (#setAcceptPolicy cm) pol
   loadScripts conf
@@ -58,7 +57,6 @@ reapplySiteConfig = applySiteConfig =<< askSiteConfig
 
 uriChanged :: Maybe T.Text -> HawkM ()
 uriChanged uri = do
-  liftIO $ print uri
   dch <- modifyRef hawkURIDomain $ (,) dom . (dom /=)
   when dch $ applySiteConfig =<< siteConfigFor dom
   where

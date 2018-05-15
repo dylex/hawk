@@ -35,7 +35,7 @@ namespace _HaWK__ {
   function loadAllow(type: string, src: string|undefined): boolean {
     const a = lookupDomain(allow, uriDomain(src));
     const b = !(<LoadSet>a & loadSet[type]);
-    if (a || b)
+    if (b || type === 'SCRIPT' || type === 'IFRAME')
       console.log((b ? "-" : "+") + " " + (<any>type).padEnd(6) + " " + src);
     return !b;
   }
@@ -90,5 +90,4 @@ namespace _HaWK__ {
     linkSelected = -1;
   }
 
-  console.log("hawk loaded");
 }

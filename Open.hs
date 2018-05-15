@@ -182,8 +182,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   _ <- G.after hawkWebView #close $ #destroy hawkWindow
 
-  _ <- G.on hawkWebView #loadChanged $ \ev -> do
-    print ev
+  _ <- G.on hawkWebView #loadChanged $ \ev ->
     #setText hawkStatusLoad =<< case ev of
       WK.LoadEventStarted     -> "WAIT"  <$ run loadStarted
       WK.LoadEventRedirected  -> "REDIR" <$ run loadStarted

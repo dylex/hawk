@@ -58,5 +58,5 @@ loadScripts conf = do
   #addScript cm =<< asksGlobal globalScript
   #addScript cm =<< WK.userScriptNew (builderText $ setPropertiesBuilder
     [ ("allow", JSON $ J.toJSON $ configAllowLoad conf)
-    ] <> "console.log(JSON.stringify(" <> scriptModule <> ".allow));") WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
+    ]) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
   mapM_ (#addScript cm) =<< asks hawkScript

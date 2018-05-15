@@ -303,7 +303,7 @@ runBind ev = do
   case bind of
     Command{} ->
       run $ Map.findWithDefault
-        (return ()) -- (liftIO $ print (ks, kv))
+        (return ())
         (ks \\ [Gdk.ModifierTypeShiftMask], kv) commandBinds
     PassThru r
       | null ks && kv == Gdk.KEY_Escape ->
