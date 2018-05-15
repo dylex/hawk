@@ -16,7 +16,6 @@ module Event
   ) where
 
 import           Control.Monad (when)
-import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (asks)
 import           Data.Bits ((.&.))
 import           Data.Foldable (fold, or)

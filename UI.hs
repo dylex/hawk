@@ -1,17 +1,30 @@
 module UI
-  ( hawkClose
+  ( setStyle
+  , hawkClose
   , hawkGoto
   , setStatusLeft
   , loadStyleSheet
   , passThruBind
   ) where
 
+import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Reader (asks)
+import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Vector as V
 
+import qualified GI.Gtk as Gtk
+
 import Types
 import Expand
+
+setStyle :: (Gtk.IsWidget w, MonadIO m) => w -> BS.ByteString -> m Gtk.CssProvider
+setStyle obj rules = do
+  css <- Gtk.cssProviderNew
+  style <- Gtk.widgetGetStyleContext obj
+  #addProvider style css (fromIntegral Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+  #loadFromData css rules
+  return css
 
 hawkClose :: HawkM ()
 hawkClose = do

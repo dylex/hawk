@@ -7,7 +7,6 @@ module Open
 
 import           Control.Monad (forM, forM_, void)
 import qualified Data.Aeson as J
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
@@ -45,14 +44,6 @@ import URI
 import Domain
 import Scheme
 import Event
-
-setStyle :: Gtk.IsWidget w => w -> BS.ByteString -> IO Gtk.CssProvider
-setStyle obj rules = do
-  css <- Gtk.cssProviderNew
-  style <- Gtk.widgetGetStyleContext obj
-  #addProvider style css (fromIntegral Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-  #loadFromData css rules
-  return css
 
 toHex :: Double -> BSB.Builder
 toHex x
@@ -92,7 +83,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   hawkStatusBox <- G.new Gtk.Box
     [ #orientation G.:= Gtk.OrientationHorizontal ]
-  #setSizeRequest hawkStatusBox (-1) 34
+  #setSizeRequest hawkStatusBox (-1) 24
   hawkStatusStyle <- setStyle hawkStatusBox "*{}"
   #packEnd hawkTopBox hawkStatusBox False False 0
 

@@ -66,6 +66,7 @@ prompt Prompt{..} run = do
     , #inputPurpose G.:= promptPurpose
     , #text G.:= promptInit
     ]
+  _ <- setStyle ent "*{min-height:24px;border:none;}" -- min-width:80%
   #packStart (hawkStatusBox hawk) ent True True 0
 
   modifyRef_ hawkBindings $ \bind ->
