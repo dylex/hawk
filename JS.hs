@@ -76,13 +76,15 @@ setObjPropertiesBuilder obj = foldMap (\(k, v) ->
   TLB.fromText obj <> propertyRef k <> TLB.singleton '=' <> buildJSValue v <> TLB.singleton ';')
 
 data LoadElement
-  = LoadIFRAME
+  = LoadFRAME
+  | LoadIFRAME
   | LoadIMG
   | LoadLINK
   | LoadSCRIPT
   deriving (Eq, Enum, Bounded)
 
 loadElementName :: LoadElement -> T.Text
+loadElementName LoadFRAME  = "FRAME"
 loadElementName LoadIFRAME = "IFRAME"
 loadElementName LoadIMG    = "IMG"
 loadElementName LoadLINK   = "LINK"
@@ -93,6 +95,7 @@ instance J.ToJSON LoadElement where
 
 instance J.FromJSON LoadElement where
   parseJSON = J.withText "load element" $ ple . T.toUpper where
+    ple "FRAME"  = return LoadFRAME
     ple "IFRAME" = return LoadIFRAME
     ple "IMG"    = return LoadIMG
     ple "LINK"   = return LoadLINK
