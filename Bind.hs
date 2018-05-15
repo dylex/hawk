@@ -264,6 +264,7 @@ commandBinds = Map.fromList $
   , (([], 'r'), #reload =<< askWebView)
   , (([], 'R'), #reloadBypassCache =<< askWebView)
   , (([], 'l'), #searchNext =<< askFindController)
+  , (([mod1], 'l'), toggleSettingBool #enableHtml5LocalStorage)
   , (([], 'L'), #searchPrevious =<< askFindController)
   , (([], '/'), prompt def{ promptPrefix = "search" } findSearch)
 
