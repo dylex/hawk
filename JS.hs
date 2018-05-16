@@ -79,6 +79,7 @@ data LoadElement
   = LoadFRAME
   | LoadIFRAME
   | LoadIMG
+  | LoadINPUT
   | LoadLINK
   | LoadSCRIPT
   deriving (Eq, Enum, Bounded)
@@ -87,6 +88,7 @@ loadElementName :: LoadElement -> T.Text
 loadElementName LoadFRAME  = "FRAME"
 loadElementName LoadIFRAME = "IFRAME"
 loadElementName LoadIMG    = "IMG"
+loadElementName LoadINPUT  = "INPUT"
 loadElementName LoadLINK   = "LINK"
 loadElementName LoadSCRIPT = "SCRIPT"
 
@@ -98,6 +100,7 @@ instance J.FromJSON LoadElement where
     ple "FRAME"  = return LoadFRAME
     ple "IFRAME" = return LoadIFRAME
     ple "IMG"    = return LoadIMG
+    ple "INPUT"  = return LoadINPUT
     ple "LINK"   = return LoadLINK
     ple "SCRIPT" = return LoadSCRIPT
     ple _ = fail "Unknown load element"

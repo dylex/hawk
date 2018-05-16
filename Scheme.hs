@@ -56,11 +56,11 @@ hawkURIScheme req = do
   path <- #getPath req
   h <- case path of
     "marks" -> (H.head (H.title "Marks") <>) . H.body . listBrowse <$>
-      hawkDBQuery [pgSQL|!SELECT COALESCE(browse.uri, mark.uri), browse.title, browse.last
+      hawkDBQuery [pgSQL|!SELECT COALESCE(browse.uri, mark.uri), NULLIF(browse.title, ''), browse.last
          FROM mark LEFT JOIN browse ON (mark.browse = browse.id)
         ORDER BY last DESC NULLS LAST|]
     "history" -> (H.head (H.title "Favorite history") <>) . H.body . listBrowse <$>
-      hawkDBQuery [pgSQL|SELECT uri, title, last FROM
+      hawkDBQuery [pgSQL|SELECT uri, NULLIF(title, ''), last FROM
         (SELECT uri, title, last, row_number() OVER d AS i
            FROM browse
          WINDOW d AS (PARTITION BY (uri).domain ORDER BY last DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)) b
