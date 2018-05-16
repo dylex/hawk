@@ -11,7 +11,7 @@ module Bind
 import           Control.Arrow (first, second)
 import qualified Control.Lens as Lens
 import           Control.Monad (unless, void)
-import           Control.Monad.Reader (ask, asks)
+import           Control.Monad.Reader (asks)
 import           Data.Bits ((.|.))
 import           Data.Char (isUpper)
 import           Data.Default (def)
@@ -62,12 +62,6 @@ promptTextSetting attr = do
   x <- G.get sets attr
   prompt def{ promptPrefix = T.pack $ symbolVal attr, promptInit = x } $ G.set sets . return . (attr G.:=)
   settingStatus attr
-
-paste :: (T.Text -> HawkM ()) -> HawkM ()
-paste f = do
-  sel <- Gtk.clipboardGet {- Gdk.SELECTION_PRIMARY: wrapPtr Gdk.Atom (intPtrToPtr 1) -} =<< Gdk.atomInternStaticString "PRIMARY"
-  hawk <- ask
-  #requestText sel $ \_ -> maybe (return ()) $ runHawkM hawk . f
 
 modifyCount :: (Maybe Word32 -> Maybe Word32) -> HawkM (Maybe Word32)
 modifyCount f = do
@@ -254,8 +248,9 @@ commandBinds = Map.fromList $
   , (([], '+'), zoom (0.1 +))
   , (([], '_'), zoom (subtract 0.1))
 
-  , (([], 'p'), paste hawkGoto)
+  , (([], 'p'), pasteSelection hawkGoto)
   , (([mod1], 'p'), toggleKeepHistory)
+  , (([], 'y'), mapM_ copySelection =<< #getUri =<< askWebView)
   , (([], 'G'),   runScript "window.scrollTo({top:document.body.scrollHeight})")
   , (([mod1], 'f'), toggleAllowLoad LoadIFRAME)
   , (([mod1], 'c'), toggleCookiePolicy)

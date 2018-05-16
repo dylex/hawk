@@ -68,6 +68,7 @@ data Hawk = Hawk
   , hawkStatusStyle :: !Gtk.CssProvider
   , hawkStatusCount, hawkStatusLeft :: !Gtk.Label
   , hawkWebView :: !WK.WebView
+  , hawkClipboard :: !Gtk.Clipboard
 
   , hawkURIDomain :: !(IORef Domain)
   , hawkBindings :: !(IORef Bindings)

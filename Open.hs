@@ -25,6 +25,7 @@ import           Database.PostgreSQL.Typed (pgConnect, pgDisconnect)
 import           System.FilePath (takeExtension)
 import qualified System.Info as SI
 
+import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.Pango as Pango
 import qualified GI.WebKit2 as WK
@@ -161,6 +162,8 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
     ]
   #setCustomCharset hawkWebView configCharset
   #packStart hawkTopBox hawkWebView True True 0
+
+  hawkClipboard <- Gtk.clipboardGet {- Gdk.SELECTION_PRIMARY: wrapPtr Gdk.Atom (intPtrToPtr 1) -} =<< Gdk.atomInternStaticString "PRIMARY"
 
   hawkURIDomain <- newIORef "."
   hawkBindings <- newIORef def

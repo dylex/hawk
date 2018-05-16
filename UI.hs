@@ -1,5 +1,7 @@
 module UI
   ( setStyle
+  , pasteSelection
+  , copySelection
   , hawkClose
   , hawkGoto
   , setStatusLeft
@@ -8,7 +10,7 @@ module UI
   ) where
 
 import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Reader (asks)
+import           Control.Monad.Reader (ask, asks)
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -25,6 +27,16 @@ setStyle obj rules = do
   #addProvider style css (fromIntegral Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
   #loadFromData css rules
   return css
+
+pasteSelection :: (T.Text -> HawkM ()) -> HawkM ()
+pasteSelection f = do
+  hawk <- ask
+  #requestText (hawkClipboard hawk) $ \_ -> maybe (return ()) $ runHawkM hawk . f
+
+copySelection :: T.Text -> HawkM ()
+copySelection t = do
+  sel <- asks hawkClipboard
+  Gtk.clipboardSetText sel t (fromIntegral $ T.length t)
 
 hawkClose :: HawkM ()
 hawkClose = do
