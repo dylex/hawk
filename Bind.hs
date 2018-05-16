@@ -194,12 +194,13 @@ backForward n = do
 promptURL :: Maybe T.Text -> HawkM ()
 promptURL i = prompt def{ promptPrefix = "goto", promptPurpose = Gtk.InputPurposeUrl, promptInit = fold i, promptCompletion = completeURI } hawkGoto
 
-findSearch :: T.Text -> HawkM ()
-findSearch x = do
+findSearch :: Bool -> T.Text -> HawkM ()
+findSearch fwd x = do
   fc <- askFindController
   #search fc x' (
         (T.any isUpper x' `orOpt` WK.FindOptionsCaseInsensitive)
     .|. (T.null s         `orOpt` WK.FindOptionsAtWordStarts)
+    .|. (fwd              `orOpt` WK.FindOptionsBackwards)
     .|.                      opt  WK.FindOptionsWrapAround)
     256
   where
@@ -230,6 +231,10 @@ commandBinds = Map.fromList $
   , (([], Gdk.KEY_space)    , runScriptCount "window.scrollBy(0,window.innerHeight*" ")")
   , (([], Gdk.KEY_Home)     , runScript "window.scrollTo({top:0})")
   , (([], Gdk.KEY_End)      , runScript "window.scrollTo({top:document.body.scrollHeight})")
+  , (([], Gdk.KEY_Back)   , backForward (-1))
+  , (([], Gdk.KEY_Forward), backForward 1)
+  , (([], Gdk.KEY_Stop)   , #stopLoading =<< askWebView)
+  , (([], Gdk.KEY_Refresh), #reload =<< askWebView)
   ] ++
   [ (([], i + charToKey '0'), digit i) | i <- [1..9]
   ] ++ map (first (second charToKey))
@@ -261,7 +266,8 @@ commandBinds = Map.fromList $
   , (([], 'l'), #searchNext =<< askFindController)
   , (([mod1], 'l'), toggleSettingBool #enableHtml5LocalStorage)
   , (([], 'L'), #searchPrevious =<< askFindController)
-  , (([], '/'), prompt def{ promptPrefix = "search" } findSearch)
+  , (([], '/'), prompt def{ promptPrefix = "search" } $ findSearch True)
+  , (([], '?'), prompt def{ promptPrefix = "search" } $ findSearch False)
 
   , (([mod1], 'a'), toggleUserAgent)
   , (([mod1], 'A'), promptTextSetting #userAgent)
