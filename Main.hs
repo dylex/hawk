@@ -3,6 +3,7 @@
 module Main (main) where
 
 import           Control.Monad (foldM)
+import           Data.Char (isAlphaNum)
 import           Data.Default (def)
 import           Data.Function ((&))
 import qualified Data.GI.Base as G
@@ -19,6 +20,7 @@ import Paths_hawk (getDataFileName)
 import Util
 import Types
 import Config
+import Expand
 import Open
 
 optDescrs :: [GetOpt.OptDescr (Config -> IO Config)]
@@ -32,7 +34,11 @@ optDescrs =
   ]
 
 optArgs :: String -> Config -> IO Config
-optArgs u c = return c{ configURI = Just $ T.pack u }
+optArgs u c
+  | all (\x -> isAlphaNum x || '_' == x) u = fromDoesNotExist cu $ loadConfigFile c u
+  | otherwise = return cu
+  where
+  cu = c{ configURI = Just $ expandURIWith c $ T.pack u }
 
 main :: IO ()
 main = do

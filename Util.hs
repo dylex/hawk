@@ -4,6 +4,7 @@ module Util
   , mintersperseMap
   , justIf
   , foldMapA
+  , app
   , fromDoesNotExist
   , makeLenses'
   ) where
@@ -33,6 +34,9 @@ justIf f = find f . Identity
 
 foldMapA :: (Applicative f, Monoid m, Foldable t) => (a -> f m) -> t a -> f m
 foldMapA f = foldr (\a r -> mappend <$> f a <*> r) (pure mempty)
+
+app :: Applicative f => f (a -> b) -> a -> f b
+app f = (<*>) f . pure
 
 fromDoesNotExist :: a -> IO a -> IO a
 fromDoesNotExist d = handleJust (guard . isDoesNotExistError) (const $ return d)
