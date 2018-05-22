@@ -16,11 +16,13 @@ module Event
   ) where
 
 import           Control.Monad (when)
+import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (asks)
 import           Data.Bits ((.&.))
 import           Data.Foldable (fold, or)
 import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
+import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int32)
 import qualified Data.Text as T
 import           Data.Word (Word32)
@@ -35,6 +37,7 @@ import Database
 import Script
 import URI
 import Domain
+import GValue
 
 useTPGConfig
 
@@ -46,6 +49,8 @@ askSiteConfig = siteConfigFor =<< readRef hawkURIDomain
 
 applySiteConfig :: SiteConfig -> HawkM ()
 applySiteConfig conf = do
+  settings <- askSettings
+  liftIO $ mapM_ (uncurry $ setObjectProperty settings) $ HM.toList $ configSettings conf
   let pol = configCookieAcceptPolicy conf
   cm <- askCookieManager
   mapM_ (#setAcceptPolicy cm) pol

@@ -117,8 +117,7 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   hawkSettings <- G.new WK.Settings
     [ #userAgent G.:= globalUserAgent
     ]
-  forM_ (HM.toList configSettings) $ \(k, v) ->
-    setObjectProperty hawkSettings k v
+  mapM_ (uncurry $ setObjectProperty hawkSettings) $ HM.toList $ configSettings $ defaultSiteConfig hawkConfig
 
   hawkUserContentManager <- WK.userContentManagerNew
 

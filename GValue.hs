@@ -55,4 +55,3 @@ setObjectProperty o p (GValueString x)  = GProp.setObjectPropertyString o p (Jus
 setObjectProperty o p (GValueInt x)     = GProp.setObjectPropertyInt64  o p x
 setObjectProperty o p (GValueDouble x)  = GProp.setObjectPropertyDouble o p x
 setObjectProperty o p (GValueBool x)    = GProp.setObjectPropertyBool   o p x
-

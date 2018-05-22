@@ -58,9 +58,6 @@ type GObjectConfig = HM.HashMap String GValue
 data Config = Config
   { configDatabase :: !(Maybe PGDatabase)
 
-  -- WebSettings
-  , configSettings :: !GObjectConfig
-
   -- UserContentManager
   , configStyleSheet :: !(V.Vector FilePath)
   , configScript :: !(Maybe FilePath)
@@ -94,7 +91,14 @@ data Config = Config
   }
 
 data SiteConfig = SiteConfig
-  { configCookieAcceptPolicy :: !(Maybe WK.CookieAcceptPolicy)
+  {
+  -- WebSettings
+    configSettings :: !GObjectConfig
+
+  -- WebsiteDataManager
+  , configCookieAcceptPolicy :: !(Maybe WK.CookieAcceptPolicy)
+
+  -- Hawk
   , configKeepHistory :: !(Maybe Bool)
   , configAllowLoad :: !(DomainMap (ES.BitSet LoadElement))
   }
@@ -106,7 +110,6 @@ instance Default Config where
   def = Config
     { configDatabase = Just defaultParse
     , configUserAgent = V.empty
-    , configSettings = HM.empty
     , configStyleSheet = V.empty
     , configScript = Nothing
     , configDataDirectory = Nothing
@@ -130,21 +133,24 @@ instance Default Config where
 
 instance Default SiteConfig where
   def = SiteConfig
-    { configCookieAcceptPolicy = Just WK.CookieAcceptPolicyNever
+    { configSettings = HM.empty
+    , configCookieAcceptPolicy = Just WK.CookieAcceptPolicyNever
     , configKeepHistory = Just True
     , configAllowLoad = LM.singleton [] ES.empty
     }
 
 instance Semigroup SiteConfig where
   a <> b = SiteConfig
-    { configCookieAcceptPolicy = on (<|>)    configCookieAcceptPolicy a b
+    { configSettings           = on HM.union configSettings           a b
+    , configCookieAcceptPolicy = on (<|>)    configCookieAcceptPolicy a b
     , configKeepHistory        = on (<|>)    configKeepHistory        a b
     , configAllowLoad          = on LM.union configAllowLoad          a b
     }
 
 instance Monoid SiteConfig where
   mempty = SiteConfig
-    { configCookieAcceptPolicy = Nothing
+    { configSettings = HM.empty
+    , configCookieAcceptPolicy = Nothing
     , configKeepHistory = Nothing
     , configAllowLoad = LM.empty
     }
@@ -251,6 +257,7 @@ parseSome v = getSome <$> parseJSON v
 
 parserSiteConfig :: ObjectParser SiteConfig
 parserSiteConfig = do
+  configSettings'           .<~ "settings"  $ \s -> fmap (`HM.union` s) . parseJSON
   configCookieAcceptPolicy' .<- "cookie-accept-policy"
   configKeepHistory'        .<- "keep-history"
   configAllowLoad'          .<~ "allow-load" $ \s -> fmap (`LM.union` s) . parseJSON
@@ -261,7 +268,6 @@ instance J.FromJSON SiteConfig where
 parseConfig :: Config -> FilePath -> J.Value -> J.Parser Config
 parseConfig initconf conffile = parseObject initconf "config" $ do
   configDatabase'           .<- "database"
-  configSettings'           .<~ "settings" $ mergeWith . flip HM.union
   configStyleSheet'         .<~ "style-sheet" $ const $ fmap (fmap dir) . parseSome
   configScript'             .<~ "script"      $ const $ fmap (fmap dir) . parseSome
   configDataDirectory'      .<~ "data-directory" $ const $ \case
@@ -287,7 +293,7 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configURIRewrite'         .<~ "uri-rewrite" $ mergeWith . flip HM.union
   configURIAlias'           .<~ "uri-alias"   $ mergeWith . flip HM.union
   site <- parseSubObject (fold $ LM.lookup [] $ configSite initconf) parserSiteConfig
-  configSite'               .<~ "site"        $ mergeWith . flip LM.union
+  configSite'               .<~ "site"        $ mergeWith . flip LM.union -- not: LM.unionWith mappend
   modifyObject $ \c -> c{ configSite = LM.insertWith mappend [] site $ configSite c }
   where
   dir = (takeDirectory conffile </>)
