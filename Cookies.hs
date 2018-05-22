@@ -19,6 +19,7 @@ import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Function (on)
+import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe, isJust, mapMaybe)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
@@ -45,7 +46,7 @@ data Cookie = Cookie
   { cookieDomain, cookiePath, cookieName, cookieValue :: !T.Text
   , cookieSecure :: !Bool
   , cookieHttpOnly :: !Bool
-  , cookieExpires :: !Int
+  , cookieExpires :: !Int64
   } deriving (Eq, Show)
 
 instance Ord Cookie where
@@ -65,7 +66,7 @@ parseCookieTxt = pc . BSC.split '\t' where
       , cookieValue = TE.decodeUtf8 value
       , cookieSecure = sec
       , cookieHttpOnly = isJust hoddom
-      , cookieExpires = expi
+      , cookieExpires = fromIntegral expi
       }
   pc _ = Nothing
   tf "FALSE" = Just False
@@ -78,17 +79,17 @@ writeCookieTxt Cookie{..} = mintersperse (BSB.char7 '\t')
   , tf $ "." `T.isPrefixOf` cookieDomain
   , TE.encodeUtf8Builder cookiePath
   , tf cookieSecure
-  , BSB.intDec cookieExpires
+  , BSB.int64Dec cookieExpires
   , TE.encodeUtf8Builder cookieName
   , TE.encodeUtf8Builder cookieValue
   ] where
   tf False = "FALSE"
   tf True = "TRUE"
 
-checkExpired :: Int -> Cookie -> Maybe Cookie
+checkExpired :: Int64 -> Cookie -> Maybe Cookie
 checkExpired t c = c <$ guard (cookieExpires c > t)
 
-getTime :: IO Int
+getTime :: IO Int64
 getTime =
 #if MIN_VERSION_time(1,8,0)
   systemSeconds <$> getSystemTime
@@ -127,7 +128,7 @@ saveCookieDB pg Cookie{..} =
 saveCookiesDB :: PGConnection -> [Cookie] -> IO ()
 saveCookiesDB pg s = mapM_ (saveCookieDB pg) s
 
-newSoupCookie :: Int -> Cookie -> IO Soup.Cookie
+newSoupCookie :: Int64 -> Cookie -> IO Soup.Cookie
 newSoupCookie t Cookie{..} = do
   c <- Soup.cookieNew cookieName cookieValue cookieDomain cookiePath (fromIntegral $ cookieExpires - t)
   Soup.cookieSetExpires c =<< Soup.dateNewFromTimeT (fromIntegral cookieExpires)
@@ -154,7 +155,7 @@ getSoupCookie s = do
     , cookieExpires = fromIntegral expires
     }
 
-addCookie :: WK.CookieManager -> Int -> Cookie -> IO ()
+addCookie :: WK.CookieManager -> Int64 -> Cookie -> IO ()
 addCookie cm t c = do
   s <- newSoupCookie t c
   WK.cookieManagerAddCookie cm s Gio.noCancellable $ Just $ \_ cb -> do

@@ -1,19 +1,8 @@
-resolver: lts-9.21
+resolver: nightly-2018-05-21
 packages:
 - .
 extra-deps:
 - gi-webkit2-4.0.19
 - gi-soup-2.4.16
-- gi-gtk-3.0.22
-- gi-gdkpixbuf-2.0.16
-- gi-gdk-3.0.15
-- gi-pango-1.0.16
-- gi-gio-2.0.18
-# in lts-11:
-- gi-javascriptcore-4.0.15
-- haskell-gi-0.21.2
-- haskell-gi-base-0.21.1
-- rank2classes-1.0.2
-- deque-0.2.1
 build:
   #haddock: true

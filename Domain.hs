@@ -38,7 +38,7 @@ newtype DomainComponent = DomainComponent{ domainComponentText :: T.Text }
   deriving (Eq, Ord, Hashable, Show, IsString)
 type DomainComponents = [DomainComponent]
 newtype Domain = Domain{ domainComponents :: DomainComponents }
-  deriving (Eq, Ord, Monoid, Hashable, Show)
+  deriving (Eq, Ord, Semigroup, Monoid, Hashable, Show)
 
 splitDomain :: T.Text -> Domain
 splitDomain = Domain . map DomainComponent . de . reverse . T.split ('.'==) where

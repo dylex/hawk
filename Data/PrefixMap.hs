@@ -40,6 +40,9 @@ instance Functor (PrefixMap k) where
   fmap f (Leaf x) = Leaf (f x)
   fmap f (Node m) = Node $ fmap (fmap f) m
 
+instance Key k => Semigroup (PrefixMap k a) where
+  (<>) = union
+
 instance Key k => Monoid (PrefixMap k a) where
   mempty = empty
   mappend = union

@@ -135,17 +135,20 @@ instance Default SiteConfig where
     , configAllowLoad = LM.singleton [] ES.empty
     }
 
+instance Semigroup SiteConfig where
+  a <> b = SiteConfig
+    { configCookieAcceptPolicy = on (<|>)    configCookieAcceptPolicy a b
+    , configKeepHistory        = on (<|>)    configKeepHistory        a b
+    , configAllowLoad          = on LM.union configAllowLoad          a b
+    }
+
 instance Monoid SiteConfig where
   mempty = SiteConfig
     { configCookieAcceptPolicy = Nothing
     , configKeepHistory = Nothing
     , configAllowLoad = LM.empty
     }
-  mappend a b = SiteConfig
-    { configCookieAcceptPolicy = on (<|>)    configCookieAcceptPolicy a b
-    , configKeepHistory        = on (<|>)    configKeepHistory        a b
-    , configAllowLoad          = on LM.union configAllowLoad          a b
-    }
+  mappend = (<>)
 
 setSelf :: DomainComponents -> DomainMap a -> DomainMap a
 setSelf d m =

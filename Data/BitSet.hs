@@ -36,6 +36,9 @@ import           Data.Word (Word)
 newtype BitSet a = BitSet Word
   deriving (Eq, Bits, FiniteBits, J.ToJSON)
 
+instance Semigroup (BitSet a) where
+  (<>) = union
+
 instance Monoid (BitSet a) where
   mempty = empty
   mappend = union

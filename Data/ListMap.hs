@@ -48,6 +48,9 @@ data ListMap k a = ListMap
 instance Functor (ListMap k) where
   fmap f (ListMap v x) = ListMap (fmap f v) (fmap (fmap f) x)
 
+instance Key k => Semigroup (ListMap k a) where
+  (<>) = union
+
 instance Key k => Monoid (ListMap k a) where
   mempty = empty
   mappend = union
