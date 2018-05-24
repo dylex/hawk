@@ -19,16 +19,19 @@ module Config
 
 import           Control.Applicative ((<|>))
 import           Control.Arrow (left)
-import           Control.Monad (MonadPlus, mzero)
+import           Control.Monad (MonadPlus, (<=<), mzero)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Types as J (Parser, typeMismatch, parseEither)
 import qualified Data.ByteString.Char8 as BSC
 import           Data.Default (Default(def))
 import           Data.Foldable (fold)
 import           Data.Function (on)
+import qualified Data.GI.Base.Overloading as GO
 import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
 import           Data.List (isPrefixOf)
 import           Data.Maybe (fromMaybe, isJust)
+import           Data.Proxy (Proxy(Proxy))
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32, Word16)
@@ -52,8 +55,18 @@ import Domain
 import JS
 import Util
 import GValue
+import GAttributes
 
-type GObjectConfig = HM.HashMap String GValue
+type Settings = HM.HashMap String GValue
+
+wkSettings :: HS.HashSet String
+wkSettings = HS.fromList $ gAttributeList (Proxy :: Proxy (GO.AttributeList WK.Settings))
+
+checkSettings :: Monad m => Settings -> m Settings
+checkSettings s
+  | True || HM.null d = return s
+  | otherwise = fail $ "Unknown settings: " ++ show (HM.keys d)
+  where d = HM.difference s (HS.toMap wkSettings)
 
 data Config = Config
   { configDatabase :: !(Maybe PGDatabase)
@@ -93,7 +106,7 @@ data Config = Config
 data SiteConfig = SiteConfig
   {
   -- WebSettings
-    configSettings :: !GObjectConfig
+    configSettings :: !Settings
 
   -- WebsiteDataManager
   , configCookieAcceptPolicy :: !(Maybe WK.CookieAcceptPolicy)
@@ -257,7 +270,7 @@ parseSome v = getSome <$> parseJSON v
 
 parserSiteConfig :: ObjectParser SiteConfig
 parserSiteConfig = do
-  configSettings'           .<~ "settings"  $ \s -> fmap (`HM.union` s) . parseJSON
+  configSettings'           .<~ "settings"  $ \s -> fmap (`HM.union` s) . checkSettings <=< parseJSON
   configCookieAcceptPolicy' .<- "cookie-accept-policy"
   configKeepHistory'        .<- "keep-history"
   configAllowLoad'          .<~ "allow-load" $ \s -> fmap (`LM.union` s) . parseJSON

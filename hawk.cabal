@@ -73,6 +73,7 @@ executable hawk
     Domain
     Event
     Expand
+    GAttributes
     GValue
     JS
     JSON
