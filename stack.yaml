@@ -1,6 +1,10 @@
 resolver: nightly-2018-05-21
 packages:
 - .
+- location:
+    git: git://github.com/dylex/bytestring-strict-builder
+    commit: 969171201e59bc4ca4daa3b3a6fc86d89c02118f
+  extra-dep: true
 extra-deps:
 - gi-webkit2-4.0.19
 - gi-soup-2.4.16
