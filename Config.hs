@@ -99,6 +99,7 @@ data Config = Config
   , configTLSAccept :: !DomainPSet
   , configURIRewrite :: !(HM.HashMap T.Text T.Text)
   , configURIAlias :: !(HM.HashMap T.Text T.Text)
+  , configDownloadDir :: !(Maybe FilePath)
 
   , configSite :: !(DomainMap SiteConfig)
   }
@@ -141,6 +142,7 @@ instance Default Config where
     , configTLSAccept = PM.empty
     , configURIRewrite = HM.empty
     , configURIAlias = HM.empty
+    , configDownloadDir = Nothing
     , configSite = LM.singleton [] def
     }
 
@@ -305,6 +307,7 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configTLSAccept'          .<- "tls-accept"
   configURIRewrite'         .<~ "uri-rewrite" $ mergeWith . flip HM.union
   configURIAlias'           .<~ "uri-alias"   $ mergeWith . flip HM.union
+  configDownloadDir'        .<- "download-dir"
   site <- parseSubObject (fold $ LM.lookup [] $ configSite initconf) parserSiteConfig
   configSite'               .<~ "site"        $ mergeWith . flip LM.union -- not: LM.unionWith mappend
   modifyObject $ \c -> c{ configSite = LM.insertWith mappend [] site $ configSite c }

@@ -23,7 +23,6 @@ import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromMaybe, fromJust)
 import           Data.Monoid ((<>))
-import           Data.Proxy (Proxy)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32)

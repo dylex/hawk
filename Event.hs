@@ -13,12 +13,14 @@ module Event
   , loadFinished
   , targetChanged
   , reapplySiteConfig
+  , startDownload
   ) where
 
-import           Control.Monad (when)
+import           Control.Monad (when, void)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (asks)
 import           Data.Bits ((.&.))
+import           Data.Char (isAlphaNum)
 import           Data.Foldable (fold, or)
 import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
@@ -28,6 +30,8 @@ import qualified Data.Text as T
 import           Data.Word (Word32)
 import           Database.PostgreSQL.Typed (pgSQL)
 import           GHC.TypeLits (KnownSymbol)
+import           System.Directory (doesPathExist)
+import           System.FilePath ((</>), (<.>))
 
 import qualified GI.WebKit2 as WK
 
@@ -101,3 +105,32 @@ targetChanged targ _ = do
   where
   isCommand Command{} = True
   isCommand _ = False
+
+startDownload :: WK.Download -> HawkM ()
+startDownload dl = do
+  stat <- asks hawkStatusLeft
+  let dest f = do
+        _ <- G.on dl #failed $ \err -> do
+          msg <- ((f <> ": ") <>) <$> G.gerrorMessage err
+          #setText stat msg
+          print msg
+        _ <- G.on dl #createdDestination $ #setText stat
+        #setDestination dl ("file://" <> f)
+  maybe (#cancel dl) (\dir -> void $ G.on dl #decideDestination $ \fn -> do
+    let fn' = nonempt $ T.unpack $ T.map sani $ T.takeWhileEnd ('/' /=) fn
+    maybe (#cancel dl) (dest . T.pack) =<< choose (dir </> fn') 0
+    return True)
+    =<< asksConfig configDownloadDir
+  where
+  sani c
+    | isAlphaNum c || c `elem` ("()+,-.:@" :: [Char]) = c
+    | otherwise = '_'
+  nonempt "" = "_"
+  nonempt f = f
+  ext f 0 = f
+  ext f i = f <.> show (i :: Int)
+  choose _ 10 = return Nothing
+  choose f i = do
+    e <- doesPathExist f'
+    if e then choose f (succ i) else return $ Just f'
+    where f' = ext f i

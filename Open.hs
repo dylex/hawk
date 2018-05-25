@@ -22,6 +22,7 @@ import qualified Data.Text.Lazy.Builder as TLB
 import qualified Data.Text.Lazy.IO as TLIO
 import qualified Data.Text.IO as TIO
 import           Database.PostgreSQL.Typed (pgConnect, pgDisconnect)
+import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeExtension)
 import qualified System.Info as SI
 
@@ -208,6 +209,9 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
       _ -> do
         putStrLn $ "Rejecting TLS Certificate: " ++ show u ++ " " ++ show f
         return False
+
+  mapM_ (createDirectoryIfMissing False) configDownloadDir
+  _ <- G.on hawkWebContext #downloadStarted $ run . startDownload
 
   hawkFindController <- #getFindController hawkWebView
   _ <- G.on hawkFindController #foundText $ \n ->
