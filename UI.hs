@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module UI
   ( setStyle
   , pasteSelection
@@ -6,12 +8,14 @@ module UI
   , hawkGoto
   , setStatusLeft
   , loadStyleSheet
+  , commandModeBind
   , passThruBind
   ) where
 
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Reader (ask, asks)
 import qualified Data.ByteString as BS
+import           Data.Default (def)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 
@@ -63,13 +67,24 @@ loadStyleSheet i = do
   mapM_ (#addStyleSheet cm) $ css V.!? i
   writeRef hawkStyleSheet i
 
+commandModeBind :: HawkM ()
+commandModeBind = do
+  unpass =<< readRef hawkBindings
+  count <- asks hawkStatusCount
+  #setText count T.empty
+  setStatusLeft T.empty
+  #searchFinish =<< askFindController
+  writeRef hawkBindings def
+  where
+  unpass (PassThru r) = unpass =<< r
+  unpass _ = return ()
+
 passThruBind :: HawkM ()
 passThruBind = do
   css <- asks hawkStatusStyle
   #loadFromData css "*{background-color:#000;}"
-  modifyRef_ hawkBindings $ \bind ->
-    case bind of
-      PassThru{} -> bind
-      _ -> PassThru $ do
-        #loadFromData css "*{}"
-        return bind
+  modifyRef_ hawkBindings $ \case
+    bind@PassThru{} -> bind
+    bind -> PassThru $ do
+      #loadFromData css "*{}"
+      return bind

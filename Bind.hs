@@ -43,13 +43,6 @@ import JS
 import qualified Data.ListMap as LM
 import qualified Data.BitSet as ES
 
-commandMode :: HawkM ()
-commandMode = do
-  _ <- countMaybe
-  setStatusLeft T.empty
-  #searchFinish =<< askFindController
-  writeRef hawkBindings def
-
 settingStatus :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, Show a) => GA.AttrLabelProxy attr -> HawkM ()
 settingStatus attr = do
   sets <- askSettings
@@ -221,7 +214,7 @@ charToKey = fromIntegral . fromEnum
 
 commandBinds :: BindMap
 commandBinds = Map.fromList $ 
-  [ (([], Gdk.KEY_Escape), commandMode)
+  [ (([], Gdk.KEY_Escape), commandModeBind)
   , (([], Gdk.KEY_Up)       , runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], Gdk.KEY_Down)     , runScriptCount "window.scrollBy(0,+20*" ")")
   , (([], Gdk.KEY_Left)     , runScriptCount "window.scrollBy(-20*" ",0)")

@@ -42,6 +42,7 @@ import Script
 import URI
 import Domain
 import GValue
+import UI
 
 useTPGConfig
 
@@ -72,7 +73,7 @@ uriChanged uri = do
 
 loadStarted :: HawkM ()
 loadStarted = do
-  return ()
+  commandModeBind
 
 loadCommitted :: HawkM ()
 loadCommitted = do
