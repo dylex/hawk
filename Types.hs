@@ -22,6 +22,7 @@ module Types
   , modifyRef_
   ) where
 
+import           Control.Concurrent.MVar (MVar)
 import           Control.Monad (join)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ReaderT, runReaderT, asks)
@@ -54,27 +55,30 @@ instance Default Bindings where
 type PromptHistory = IORef (D.Deque T.Text)
 
 data Global = Global
-  { globalUserAgent :: !T.Text
+  { hawkConfig :: !Config
+  , hawkActive :: !(MVar Int)
+  , globalUserAgent :: !T.Text
   , globalStyleSheet :: !WK.UserStyleSheet
   , globalScript :: !WK.UserScript
+  
+  , hawkDatabase :: !(Maybe PGConnection)
+  , hawkClipboard :: !Gtk.Clipboard
+  , hawkWebContext :: !WK.WebContext
+  , hawkStyleSheets :: !(V.Vector WK.UserStyleSheet)
+  , hawkScript :: !(Maybe WK.UserScript)
   }
 
 data Hawk = Hawk
   { hawkGlobal :: !Global
-  , hawkConfig :: !Config
-  , hawkDatabase :: !(Maybe PGConnection)
   , hawkWindow :: !Gtk.Window
   , hawkStatusBox :: !Gtk.Box
   , hawkStatusStyle :: !Gtk.CssProvider
   , hawkStatusCount, hawkStatusLeft :: !Gtk.Label
   , hawkWebView :: !WK.WebView
-  , hawkClipboard :: !Gtk.Clipboard
 
   , hawkURIDomain :: !(IORef Domain)
   , hawkBindings :: !(IORef Bindings)
-  , hawkStyleSheets :: !(V.Vector WK.UserStyleSheet)
   , hawkStyleSheet :: !(IORef Int)
-  , hawkScript :: !(Maybe WK.UserScript)
   , hawkPromptHistory :: !(IORef (HM.HashMap T.Text PromptHistory))
   , hawkSiteOverride :: !(IORef SiteConfig)
   }
@@ -88,7 +92,7 @@ asksGlobal :: (Global -> a) -> HawkM a
 asksGlobal = asks . (. hawkGlobal)
 
 asksConfig :: (Config -> a) -> HawkM a
-asksConfig = asks . (. hawkConfig)
+asksConfig = asksGlobal . (. hawkConfig)
 
 askWebView :: HawkM WK.WebView
 askWebView = asks hawkWebView
@@ -97,7 +101,7 @@ askSettings :: HawkM WK.Settings
 askSettings = #getSettings =<< askWebView
 
 askWebContext :: HawkM WK.WebContext
-askWebContext = #getContext =<< askWebView
+askWebContext = asksGlobal hawkWebContext
 
 askUserContentManager :: HawkM WK.UserContentManager
 askUserContentManager = #getUserContentManager =<< askWebView

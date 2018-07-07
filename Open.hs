@@ -1,11 +1,14 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Open
   ( hawkOpen
+  , hawkShow
   , globalOpen
   ) where
 
-import           Control.Monad (forM, forM_, void)
+import           Control.Concurrent.MVar (newMVar, modifyMVar, modifyMVar_)
+import           Control.Monad (join, forM, forM_, when, void)
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy as BSL
@@ -54,8 +57,9 @@ toHex x
   | otherwise = BSB.word8HexFixed $ floor (255*x)
   where
 
-globalOpen :: IO Global
-globalOpen = do
+globalOpen :: Config -> IO Global
+globalOpen hawkConfig@Config{..} = do
+  hawkActive <- newMVar 0
   vmaj <- WK.getMajorVersion
   vmin <- WK.getMinorVersion
   let globalUserAgent = T.pack $ "hawk (X11; " <> SI.os <> " " <> SI.arch <> ") WebKit/" <> show vmaj <> "." <> show vmin
@@ -63,15 +67,50 @@ globalOpen = do
   globalStyleSheet <- WK.userStyleSheetNew css WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
   js <- TLIO.readFile =<< getDataFileName "hawk.js"
   globalScript <- WK.userScriptNew (TL.toStrict $ js <> jsconf) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
+
+  hawkDatabase <- mapM pgConnect configDatabase
+
+  hawkStyleSheets <- forM configStyleSheet $ \f -> do
+    d <- TIO.readFile f
+    WK.userStyleSheetNew d WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
+
+  hawkScript <- forM configScript $ \f -> do
+    d <- TIO.readFile f
+    WK.userScriptNew d WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
+
+  hawkWebContext <- WK.webContextNewWithWebsiteDataManager =<<
+    G.new WK.WebsiteDataManager
+      (                 (:) (#isEphemeral        G.:= isNothing configDataDirectory)
+      $ maybe id (\d -> (:) (#baseDataDirectory  G.:= T.pack d)) configDataDirectory
+      $ maybe id (\d -> (:) (#baseCacheDirectory G.:= T.pack d)) configCacheDirectory
+      [])
+
+  hawkCookieManager <- #getCookieManager hawkWebContext
+  forM_ configCookieFile $ \f ->
+    #setPersistentStorage hawkCookieManager (T.pack f) (case takeExtension f of
+      ".txt" -> WK.CookiePersistentStorageText
+      "" -> WK.CookiePersistentStorageText
+      _ -> WK.CookiePersistentStorageSqlite)
+
+  #setCacheModel hawkWebContext configCacheModel
+  #setWebProcessCountLimit hawkWebContext configProcessCountLimit
+  forM_ configProxy $ \p ->
+    #setNetworkProxySettings hawkWebContext WK.NetworkProxyModeCustom . Just
+      =<< WK.networkProxySettingsNew (Just p) (Just configProxyIgnore)
+  #setSpellCheckingEnabled hawkWebContext configSpellChecking
+  #setProcessModel hawkWebContext configProcessModel
+
+  hawkClipboard <- Gtk.clipboardGet {- Gdk.SELECTION_PRIMARY: wrapPtr Gdk.Atom (intPtrToPtr 1) -} =<< Gdk.atomInternStaticString "PRIMARY"
+
   return Global{..}
   where
   jsconf = TLB.toLazyText $ TLB.singleton '\n' <> setPropertiesBuilder
     [ ("loadSet", JSON $ J.object [ loadElementName l J..= ES.singleton l | l <- [minBound..maxBound] ])
     ]
 
-hawkOpen :: Global -> Config -> IO Hawk
-hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
-  hawkDatabase <- mapM pgConnect configDatabase
+hawkOpen :: Global -> Maybe Hawk -> IO Hawk
+hawkOpen hawkGlobal@Global{..} parent = do
+  let Config{..} = hawkConfig
 
   hawkWindow <- G.new Gtk.Window
     [ #type G.:= Gtk.WindowTypeToplevel
@@ -114,7 +153,6 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   _ <- setStyle hawkStatusURI "*{color:#08f;}"
   #packEnd hawkStatusBox hawkStatusURI True True 0
 
-
   hawkSettings <- G.new WK.Settings
     [ #userAgent G.:= globalUserAgent
     ]
@@ -122,48 +160,15 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
 
   hawkUserContentManager <- WK.userContentManagerNew
 
-  hawkStyleSheets <- forM configStyleSheet $ \f -> do
-    d <- TIO.readFile f
-    WK.userStyleSheetNew d WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
-
-  hawkScript <- forM configScript $ \f -> do
-    d <- TIO.readFile f
-    WK.userScriptNew d WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
-
-  hawkWebContext <- WK.webContextNewWithWebsiteDataManager =<<
-    G.new WK.WebsiteDataManager
-      (                 (:) (#isEphemeral        G.:= isNothing configDataDirectory)
-      $ maybe id (\d -> (:) (#baseDataDirectory  G.:= T.pack d)) configDataDirectory
-      $ maybe id (\d -> (:) (#baseCacheDirectory G.:= T.pack d)) configCacheDirectory
-      [])
-
-  hawkCookieManager <- #getCookieManager hawkWebContext
-  forM_ configCookieFile $ \f ->
-    #setPersistentStorage hawkCookieManager (T.pack f) (case takeExtension f of
-      ".txt" -> WK.CookiePersistentStorageText
-      "" -> WK.CookiePersistentStorageText
-      _ -> WK.CookiePersistentStorageSqlite)
-
-  #setCacheModel hawkWebContext configCacheModel
-  #setWebProcessCountLimit hawkWebContext configProcessCountLimit
-  forM_ configProxy $ \p ->
-    #setNetworkProxySettings hawkWebContext WK.NetworkProxyModeCustom . Just
-      =<< WK.networkProxySettingsNew (Just p) (Just configProxyIgnore)
-  #setSpellCheckingEnabled hawkWebContext configSpellChecking
-  #setProcessModel hawkWebContext configProcessModel
-
-
-  hawkWebView <- G.new WK.WebView
+  hawkWebView <- G.new WK.WebView $
     [ #webContext G.:= hawkWebContext
     , #settings G.:= hawkSettings
     , #userContentManager G.:= hawkUserContentManager
     , #editable G.:= configEditable
     , #zoomLevel G.:= configZoomLevel
-    ]
+    ] ++ maybe [] (return . (#relatedView G.:=) . hawkWebView) parent
   #setCustomCharset hawkWebView configCharset
   #packStart hawkTopBox hawkWebView True True 0
-
-  hawkClipboard <- Gtk.clipboardGet {- Gdk.SELECTION_PRIMARY: wrapPtr Gdk.Atom (intPtrToPtr 1) -} =<< Gdk.atomInternStaticString "PRIMARY"
 
   hawkURIDomain <- newIORef "."
   hawkBindings <- newIORef def
@@ -199,6 +204,27 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
     #setTitle hawkWindow . ("hawk " <>) . fold =<< #getTitle hawkWebView
   _ <- G.on hawkWebView #mouseTargetChanged $ (.) run . targetChanged
 
+  _ <- G.on hawkWebView #decidePolicy $ \d -> \case
+    {-
+    WK.PolicyDecisionTypeResponse -> do
+      rd <- G.unsafeCastTo WK.ResponsePolicyDecision d
+      req <- G.get rd #request
+      resp <- G.get rd #response
+      uri <- G.get req #uri
+      mime <- G.get resp #mimeType
+      print (uri, mime)
+      return False
+    -}
+    {-
+    WK.PolicyDecisionTypeNewWindowAction -> do
+      nd <- G.unsafeCastTo WK.NavigationPolicyDecision d
+      req <- G.get nd #request
+      #loadRequest hawkWebView req
+      #ignore d
+      return True
+    -}
+    _ -> return False
+
   if isJust (PM.lookup [] configTLSAccept)
     then #setTlsErrorsPolicy hawkWebContext WK.TLSErrorsPolicyIgnore
     else void $ G.on hawkWebView #loadFailedWithTlsErrors $ \u c f -> case uriDomain u of
@@ -225,11 +251,36 @@ hawkOpen hawkGlobal@Global{..} hawkConfig@Config{..} = do
   _ <- G.on hawkUserContentManager #scriptMessageReceived $ run . scriptMessageHandler
   True <- #registerScriptMessageHandler hawkUserContentManager "hawk"
 
+  _ <- G.on hawkWebView #create $ \nav -> do
+    print =<< #getNavigationType nav
+    -- TODO: newWithRelatedView
+    child@Hawk{ hawkWebView = wv } <- hawkOpen hawkGlobal{ hawkConfig = hawkConfig{ configURI = Nothing } } (Just hawk)
+    _ <- G.on wv #readyToShow $
+      hawkShow child
+    Gtk.toWidget wv
+
+  modifyMVar_ hawkActive (return . succ)
+  _ <- G.after hawkWindow #destroy $ do
+    n <- modifyMVar hawkActive (return . join (,) . pred)
+    when (n <= 0) Gtk.mainQuit
+
   run $ do
     loadStyleSheet 0
     loadCookies
     uriChanged Nothing
     mapM_ hawkGoto configURI
 
-  #showAll hawkWindow
   return hawk
+
+hawkShow :: Hawk -> IO ()
+hawkShow Hawk{..} = do
+  wp <- #getWindowProperties hawkWebView
+  geom <- #getGeometry wp
+  x <- G.get geom #x
+  y <- G.get geom #y
+  #move hawkWindow x y
+  w <- G.get geom #width
+  h <- G.get geom #height
+  #resize hawkWindow (if w == 0 then 640 else w) (if w == 0 then 480 else h)
+  #showAll hawkWindow
+

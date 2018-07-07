@@ -6,7 +6,6 @@ import           Control.Monad (foldM)
 import           Data.Char (isAlphaNum)
 import           Data.Default (def)
 import           Data.Function ((&))
-import qualified Data.GI.Base as G
 import qualified Data.Text as T
 import qualified System.Console.GetOpt as GetOpt
 import           System.Directory (getAppUserDataDirectory, setCurrentDirectory)
@@ -18,7 +17,6 @@ import qualified GI.Gtk as Gtk
 
 import Paths_hawk (getDataFileName)
 import Util
-import Types
 import Config
 import Expand
 import Open
@@ -46,7 +44,6 @@ main = do
 
   -- load system config
   base <- loadConfigFile def =<< getDataFileName baseConfigFile
-  global <- globalOpen
 
   -- load user config
   setCurrentDirectory =<< getAppUserDataDirectory "hawk"
@@ -59,8 +56,8 @@ main = do
       hPutStrLn stderr $ GetOpt.usageInfo (T.unpack prog ++ " [OPTIONS] [URI]") optDescrs
       exitFailure
 
-  hawk <- hawkOpen global config
-
-  _ <- G.after (hawkWindow hawk) #destroy Gtk.mainQuit
+  global <- globalOpen config
+  hawk <- hawkOpen global Nothing
+  hawkShow hawk
 
   Gtk.main

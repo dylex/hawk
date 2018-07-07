@@ -122,7 +122,7 @@ toggleUserAgent = do
 
 toggleStyleSheet :: HawkM ()
 toggleStyleSheet = do
-  n <- V.length <$> asks hawkStyleSheets
+  n <- V.length <$> asksGlobal hawkStyleSheets
   loadStyleSheet =<< toggle (V.enumFromTo (-1) (pred n)) =<< readRef hawkStyleSheet
 
 modifySiteOverride :: Lens.Lens' SiteConfig a -> (a -> a -> HawkM a) -> HawkM a

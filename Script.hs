@@ -6,7 +6,6 @@ module Script
   , loadScripts
   ) where
 
-import           Control.Monad.Reader (asks)
 import qualified Data.Aeson as J
 import           Data.Monoid ((<>))
 import           Data.String (IsString)
@@ -59,4 +58,4 @@ loadScripts conf = do
   #addScript cm =<< WK.userScriptNew (builderText $ setPropertiesBuilder
     [ ("allow", JSON $ J.toJSON $ configAllowLoad conf)
     ]) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
-  mapM_ (#addScript cm) =<< asks hawkScript
+  mapM_ (#addScript cm) =<< asksGlobal hawkScript

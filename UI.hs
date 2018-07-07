@@ -35,11 +35,11 @@ setStyle obj rules = do
 pasteSelection :: (T.Text -> HawkM ()) -> HawkM ()
 pasteSelection f = do
   hawk <- ask
-  #requestText (hawkClipboard hawk) $ \_ -> maybe (return ()) $ runHawkM hawk . f
+  #requestText (hawkClipboard $ hawkGlobal hawk) $ \_ -> maybe (return ()) $ runHawkM hawk . f
 
 copySelection :: T.Text -> HawkM ()
 copySelection t = do
-  sel <- asks hawkClipboard
+  sel <- asksGlobal hawkClipboard
   Gtk.clipboardSetText sel t (fromIntegral $ T.length t)
 
 hawkClose :: HawkM ()
@@ -61,7 +61,7 @@ loadStyleSheet :: Int -> HawkM ()
 loadStyleSheet i = do
   cm <- askUserContentManager
   glob <- asksGlobal globalStyleSheet
-  css <- asks hawkStyleSheets
+  css <- asksGlobal hawkStyleSheets
   #removeAllStyleSheets cm
   #addStyleSheet cm glob
   mapM_ (#addStyleSheet cm) $ css V.!? i
