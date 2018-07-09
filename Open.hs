@@ -5,6 +5,7 @@ module Open
   ( hawkOpen
   , hawkShow
   , globalOpen
+  , globalClose
   ) where
 
 import           Control.Concurrent.MVar (newMVar, modifyMVar, modifyMVar_)
@@ -108,6 +109,10 @@ globalOpen hawkConfig@Config{..} = do
     [ ("loadSet", JSON $ J.object [ loadElementName l J..= ES.singleton l | l <- [minBound..maxBound] ])
     ]
 
+globalClose :: Global -> IO ()
+globalClose Global{..} = do
+  mapM_ pgDisconnect hawkDatabase
+
 hawkOpen :: Global -> Maybe Hawk -> IO Hawk
 hawkOpen hawkGlobal@Global{..} parent = do
   let Config{..} = hawkConfig
@@ -115,8 +120,6 @@ hawkOpen hawkGlobal@Global{..} parent = do
   hawkWindow <- G.new Gtk.Window
     [ #type G.:= Gtk.WindowTypeToplevel
     ]
-
-  mapM_ (G.after hawkWindow #destroy . pgDisconnect) hawkDatabase
 
   hawkTopBox <- G.new Gtk.Box
     [ #orientation G.:= Gtk.OrientationVertical ]

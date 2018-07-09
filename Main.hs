@@ -61,3 +61,5 @@ main = do
   hawkShow hawk
 
   Gtk.main
+
+  globalClose global
