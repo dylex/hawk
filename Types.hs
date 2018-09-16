@@ -46,7 +46,8 @@ data Bindings
     { commandCount :: Maybe Word32
     }
   | PassThru
-    { bindingsReturn :: HawkM Bindings
+    { passThruKey :: Word32
+    , bindingsReturn :: HawkM Bindings
     }
 
 instance Default Bindings where

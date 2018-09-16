@@ -70,7 +70,7 @@ prompt Prompt{..} run = do
   #packStart (hawkStatusBox hawk) ent True True 0
 
   modifyRef_ hawkBindings $ \bind ->
-    PassThru $ do
+    PassThru Gdk.KEY_Escape $ do
       #destroy ent
       setStatusLeft ""
       return bind
@@ -78,7 +78,7 @@ prompt Prompt{..} run = do
     t <- #getText ent
     b <- readRef hawkBindings
     case b of
-      PassThru r -> do
+      PassThru _ r -> do
         liftIO $ modifyIORef' histr $ D.cons t
         writeRef hawkBindings =<< r
         run t

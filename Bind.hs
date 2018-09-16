@@ -11,7 +11,6 @@ module Bind
 import           Control.Arrow (first, second)
 import qualified Control.Lens as Lens
 import           Control.Monad (unless, void)
-import           Control.Monad.Reader (asks)
 import           Data.Bits ((.|.))
 import           Data.Char (isUpper)
 import           Data.Default (def)
@@ -55,15 +54,6 @@ promptTextSetting attr = do
   x <- G.get sets attr
   prompt def{ promptPrefix = T.pack $ symbolVal attr, promptInit = x } $ G.set sets . return . (attr G.:=)
   settingStatus attr
-
-modifyCount :: (Maybe Word32 -> Maybe Word32) -> HawkM (Maybe Word32)
-modifyCount f = do
-  c <- modifyRef hawkBindings $ \case
-    b@Command{ commandCount = c } -> (b{ commandCount = f c }, c)
-    b -> (b, Nothing)
-  stat <- asks hawkStatusCount
-  #setText stat $ maybe T.empty (T.pack . show) $ f c
-  return c
 
 digit :: Word32 -> HawkM ()
 digit i = void $ modifyCount $ Just . (i+) . maybe 0 (10*)
@@ -215,6 +205,7 @@ charToKey = fromIntegral . fromEnum
 commandBinds :: BindMap
 commandBinds = Map.fromList $ 
   [ (([], Gdk.KEY_Escape), commandModeBind)
+  , (([], Gdk.KEY_Insert), passThruBind Gdk.KEY_Insert)
   , (([], Gdk.KEY_Up)       , runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], Gdk.KEY_Down)     , runScriptCount "window.scrollBy(0,+20*" ")")
   , (([], Gdk.KEY_Left)     , runScriptCount "window.scrollBy(-20*" ",0)")
@@ -268,7 +259,7 @@ commandBinds = Map.fromList $
   , (([], 'O'), promptURL =<< #getUri =<< askWebView)
   , (([], 'e'), backForward . maybe (-1) (negate . fromIntegral) =<< countMaybe)
   , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)
-  , (([], 'i'), passThruBind)
+  , (([], 'i'), passThruBind Gdk.KEY_Escape)
   , (([], 'I'), inspector)
   , (([], 'h'), runScriptCount "window.scrollBy(-20*" ",0)")
   , (([], 't'), runScriptCount "window.scrollBy(0,+20*" ")")
@@ -299,7 +290,7 @@ runBind ev = do
       run $ Map.findWithDefault
         (return ())
         (ks \\ [Gdk.ModifierTypeShiftMask], kv) commandBinds
-    PassThru r
-      | null ks && kv == Gdk.KEY_Escape ->
+    PassThru k r
+      | null ks && kv == k ->
         run $ writeRef hawkBindings =<< r
       | otherwise -> return False

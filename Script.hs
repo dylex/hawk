@@ -14,6 +14,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
 
 import qualified GI.Gio as Gio
+import qualified GI.Gdk as Gdk
 import qualified GI.WebKit2 as WK
 
 import Config
@@ -48,7 +49,7 @@ linkSelect t r = callScript "linkSelect" [JSON (J.String t), JSRegExp r True]
 
 scriptMessageHandler :: WK.JavascriptResult -> HawkM ()
 scriptMessageHandler _arg =
-  passThruBind
+  passThruBind Gdk.KEY_Escape
 
 loadScripts :: SiteConfig -> HawkM ()
 loadScripts conf = do

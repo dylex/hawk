@@ -8,6 +8,7 @@ module UI
   , hawkGoto
   , setStatusLeft
   , loadStyleSheet
+  , modifyCount
   , commandModeBind
   , passThruBind
   ) where
@@ -15,10 +16,11 @@ module UI
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Reader (ask, asks)
 import qualified Data.ByteString as BS
-import           Data.Default (def)
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import           Data.Word (Word32)
 
+import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 
 import Types
@@ -67,24 +69,32 @@ loadStyleSheet i = do
   mapM_ (#addStyleSheet cm) $ css V.!? i
   writeRef hawkStyleSheet i
 
+modifyCount :: (Maybe Word32 -> Maybe Word32) -> HawkM (Maybe Word32)
+modifyCount f = do
+  c <- modifyRef hawkBindings $ \case
+    b@Command{ commandCount = c } -> (b{ commandCount = f c }, c)
+    b -> (b, Nothing)
+  stat <- asks hawkStatusCount
+  #setText stat $ maybe T.empty (T.pack . show) $ f c
+  return c
+
 commandModeBind :: HawkM ()
 commandModeBind = do
   unpass =<< readRef hawkBindings
-  count <- asks hawkStatusCount
-  #setText count T.empty
+  _ <- modifyCount (const Nothing)
   setStatusLeft T.empty
   #searchFinish =<< askFindController
-  writeRef hawkBindings def
+  -- writeRef hawkBindings def
   where
-  unpass (PassThru r) = unpass =<< r
+  unpass (PassThru Gdk.KEY_Escape r) = unpass =<< r
   unpass _ = return ()
 
-passThruBind :: HawkM ()
-passThruBind = do
+passThruBind :: Word32 -> HawkM ()
+passThruBind k = do
   css <- asks hawkStatusStyle
   #loadFromData css "*{background-color:#000;}"
   modifyRef_ hawkBindings $ \case
-    bind@PassThru{} -> bind
-    bind -> PassThru $ do
+    bind@PassThru{} -> bind{ passThruKey = k }
+    bind -> PassThru k $ do
       #loadFromData css "*{}"
       return bind
