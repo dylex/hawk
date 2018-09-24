@@ -189,8 +189,11 @@ loadCookies =
 saveCookies :: T.Text -> HawkM ()
 saveCookies uri =
   -- TODO: remove old cookies for site (if db)
-  mapM_ (\store ->
-    getCookies uri (either saveCookiesDB saveCookiesTxt store))
+  mapM_ (\store -> do
+    stat <- asks hawkStatusLeft
+    getCookies uri $ \c -> do
+      either saveCookiesDB saveCookiesTxt store c
+      #setText stat $ T.pack $ show (length c) ++ " cookies saved")
     =<< cookieStore
 
 #else
