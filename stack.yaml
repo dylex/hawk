@@ -1,8 +1,9 @@
-resolver: lts-12.10
+resolver: lts-12.17
 packages:
 - .
 extra-deps:
 - gi-webkit2-4.0.19
 - gi-soup-2.4.16
+- gi-javascriptcore-4.0.16
 build:
   #haddock: true
