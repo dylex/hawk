@@ -31,10 +31,10 @@ expandURIWith conf = expand . T.strip where
       "file://" <> homeDir <> p
     _ -> case T.uncons r of
       Just (':',_) -> s
-      Just (' ',_) ->
+      Just (' ',q) ->
         maybe
           (mayrw $ HM.lookup T.empty rm)
-          (rewrite r)
+          (rewrite q)
           $ HM.lookup a rm
       ~Nothing ->
         fromMaybe

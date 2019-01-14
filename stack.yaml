@@ -1,9 +1,10 @@
-resolver: lts-12.17
+resolver: lts-13.2
 packages:
 - .
 extra-deps:
 - gi-webkit2-4.0.19
 - gi-soup-2.4.16
 - gi-javascriptcore-4.0.16
+- postgresql-typed-0.5.3.0
 build:
   #haddock: true
