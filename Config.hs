@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Config
@@ -38,7 +39,7 @@ import           Data.Word (Word32, Word16)
 import qualified Data.Yaml as Y
 import           Database.PostgreSQL.Typed (PGDatabase(..), defaultPGDatabase, useTPGDatabase)
 import qualified Language.Haskell.TH as TH
-import           Network (PortID(..))
+import           Network.Socket (SockAddr(SockAddrUnix))
 import           System.Environment (getEnv)
 import           System.Directory (doesFileExist, getXdgDirectory, XdgDirectory(XdgCache))
 import           System.FilePath ((</>), (<.>), dropExtension, takeExtension, takeDirectory)
@@ -204,10 +205,7 @@ instance J.FromJSON PGDatabase where
     pass  <- d J..:? "pass"  J..!= ""
     debug <- d J..:? "debug" J..!= False
     return defaultPGDatabase
-      { pgDBHost = fromMaybe "localhost" host
-      , pgDBPort = if isJust host
-        then PortNumber (fromIntegral port)
-        else UnixSocket sock
+      { pgDBAddr = maybe (Right $ SockAddrUnix sock) (Left . (, show port)) host
       , pgDBName = BSC.pack db
       , pgDBUser = BSC.pack user
       , pgDBPass = BSC.pack pass

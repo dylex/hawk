@@ -117,5 +117,5 @@ completeURI t i
   | otherwise =
     fold <$> hawkDBQuery [pgSQL|$SELECT COALESCE(browse.uri, mark.uri)
       FROM mark FULL JOIN browse ON (mark.browse = browse.id)
-      WHERE text(coalesce(mark.uri, browse.uri)) LIKE '%' || ${t} || '%'
+      WHERE text(coalesce(mark.uri, browse.uri)) ILIKE '%' || ${t} || '%'
       ORDER BY mark.id IS NULL, browse.last DESC NULLS LAST OFFSET ${fromIntegral i :: Int64} LIMIT 1|]
