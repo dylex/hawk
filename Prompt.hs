@@ -23,7 +23,7 @@ import           Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import           Data.Tuple (swap)
 import           Database.PostgreSQL.Typed (pgSQL)
-import qualified Deque as D
+import qualified Deque.Strict as D
 
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk

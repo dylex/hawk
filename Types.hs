@@ -33,7 +33,7 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32)
 import           Database.PostgreSQL.Typed (PGConnection)
-import qualified Deque as D
+import qualified Deque.Strict as D
 
 import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
