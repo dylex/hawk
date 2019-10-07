@@ -35,7 +35,7 @@ namespace _HaWK__ {
   function loadAllow(type: string, src: string|undefined): boolean {
     const a = lookupDomain(allow, uriDomain(src));
     const b = !(<LoadSet>a & loadSet[type]);
-    if (b || type === 'SCRIPT' || type === 'IFRAME')
+    if (b || type === 'SCRIPT' || type === 'IFRAME' || type === 'OBJECT')
       console.log((b ? "-" : "+") + " " + (<any>type).padEnd(6) + " " + src);
     return !b;
   }

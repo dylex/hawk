@@ -81,6 +81,7 @@ data LoadElement
   | LoadIMG
   | LoadINPUT
   | LoadLINK
+  | LoadOBJECT
   | LoadSCRIPT
   deriving (Eq, Enum, Bounded)
 
@@ -90,6 +91,7 @@ loadElementName LoadIFRAME = "IFRAME"
 loadElementName LoadIMG    = "IMG"
 loadElementName LoadINPUT  = "INPUT"
 loadElementName LoadLINK   = "LINK"
+loadElementName LoadOBJECT = "OBJECT"
 loadElementName LoadSCRIPT = "SCRIPT"
 
 instance J.ToJSON LoadElement where
@@ -102,5 +104,6 @@ instance J.FromJSON LoadElement where
     ple "IMG"    = return LoadIMG
     ple "INPUT"  = return LoadINPUT
     ple "LINK"   = return LoadLINK
+    ple "OBJECT" = return LoadOBJECT
     ple "SCRIPT" = return LoadSCRIPT
     ple _ = fail "Unknown load element"

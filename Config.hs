@@ -31,7 +31,6 @@ import qualified Data.GI.Base.Overloading as GO
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (isPrefixOf)
-import           Data.Maybe (fromMaybe, isJust)
 import           Data.Proxy (Proxy(Proxy))
 import qualified Data.Text as T
 import qualified Data.Vector as V
