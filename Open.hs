@@ -94,7 +94,6 @@ globalOpen hawkConfig@Config{..} = do
       _ -> WK.CookiePersistentStorageSqlite)
 
   #setCacheModel hawkWebContext configCacheModel
-  #setWebProcessCountLimit hawkWebContext configProcessCountLimit
   forM_ configProxy $ \p ->
     #setNetworkProxySettings hawkWebContext WK.NetworkProxyModeCustom . Just
       =<< WK.networkProxySettingsNew (Just p) (Just configProxyIgnore)

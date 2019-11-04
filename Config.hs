@@ -34,7 +34,7 @@ import           Data.List (isPrefixOf)
 import           Data.Proxy (Proxy(Proxy))
 import qualified Data.Text as T
 import qualified Data.Vector as V
-import           Data.Word (Word32, Word16)
+import           Data.Word (Word16)
 import qualified Data.Yaml as Y
 import           Database.PostgreSQL.Typed (PGDatabase(..), defaultPGDatabase, useTPGDatabase)
 import qualified Language.Haskell.TH as TH
@@ -82,7 +82,6 @@ data Config = Config
 
   -- WebContext
   , configCacheModel :: !WK.CacheModel
-  , configProcessCountLimit :: !Word32
   , configProxy :: !(Maybe T.Text)
   , configProxyIgnore :: ![T.Text]
   , configSpellChecking :: !Bool
@@ -130,11 +129,10 @@ instance Default Config where
     , configCacheDirectory = Just $ Unsafe.unsafeDupablePerformIO $ getXdgDirectory XdgCache "hawk"
     , configCookieFile = Nothing
     , configCacheModel = WK.CacheModelWebBrowser
-    , configProcessCountLimit = 0
     , configProxy = Nothing
     , configProxyIgnore = []
     , configSpellChecking = True
-    , configProcessModel = WK.ProcessModelSharedSecondaryProcess
+    , configProcessModel = WK.ProcessModelMultipleSecondaryProcesses
     , configCharset = Nothing
     , configEditable = False
     , configZoomLevel = 1
@@ -291,7 +289,6 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configCookieFile'         .<~ "cookie-file"     $ const parsePath
   -- modifyObject $ \c -> c{ configCookieAcceptPolicy = maybe WK.CookieAcceptPolicyNever (const WK.CookieAcceptPolicyNoThirdParty) $ configCookieFile c }
   configCacheModel'         .<- "cache-model"
-  configProcessCountLimit'  .<- "process-count-limit"
   configProxy'              .<- "proxy"
   configProxyIgnore'        .<- "proxy-ignore"
   configSpellChecking'      .<- "spell-checking"
