@@ -14,7 +14,7 @@ settings:
   enable-write-console-messages-to-stdout: True
   hardware-acceleration-policy: 2 # never
   media-playback-requires-user-gesture: True
-  zoom-text-only: True
+  zoom-text-only: False
 style-sheet: "plain.css"
 cookie-accept-policy: false
 allow-load: false

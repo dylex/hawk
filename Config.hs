@@ -62,7 +62,7 @@ type Settings = HM.HashMap String GValue
 wkSettings :: HS.HashSet String
 wkSettings = HS.fromList $ gAttributeList (Proxy :: Proxy (GO.AttributeList WK.Settings))
 
-checkSettings :: Monad m => Settings -> m Settings
+checkSettings :: MonadFail m => Settings -> m Settings
 checkSettings s
   | True || HM.null d = return s
   | otherwise = fail $ "Unknown settings: " ++ show (HM.keys d)
