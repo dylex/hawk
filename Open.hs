@@ -19,7 +19,6 @@ import qualified Data.GI.Base as G
 import qualified Data.HashMap.Strict as HM
 import           Data.IORef (newIORef)
 import           Data.Maybe (isNothing, isJust)
-import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
