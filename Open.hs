@@ -216,14 +216,12 @@ hawkOpen hawkGlobal@Global{..} parent = do
       print (uri, mime)
       return False
     -}
-    {-
     WK.PolicyDecisionTypeNewWindowAction -> do
       nd <- G.unsafeCastTo WK.NavigationPolicyDecision d
       req <- G.get nd #request
       #loadRequest hawkWebView req
       #ignore d
       return True
-    -}
     _ -> return False
 
   if isJust (PM.lookup [] configTLSAccept)
