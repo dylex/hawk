@@ -158,7 +158,7 @@ getSoupCookie s = do
 addCookie :: WK.CookieManager -> Int64 -> Cookie -> IO ()
 addCookie cm t c = do
   s <- newSoupCookie t c
-  WK.cookieManagerAddCookie cm s Gio.noCancellable $ Just $ \_ cb -> do
+  WK.cookieManagerAddCookie cm s (Nothing :: Maybe Gio.Cancellable) $ Just $ \_ cb -> do
     WK.cookieManagerAddCookieFinish cm cb
 
 addCookies :: [Cookie] -> HawkM ()
@@ -171,7 +171,7 @@ addCookies s = do
 getCookies :: T.Text -> ([Cookie] -> IO ()) -> HawkM ()
 getCookies uri f = do
   cm <- askCookieManager
-  #getCookies cm uri Gio.noCancellable $ Just $ \_ cb ->
+  #getCookies cm uri (Nothing :: Maybe Gio.Cancellable) $ Just $ \_ cb ->
     f =<< mapM getSoupCookie =<< #getCookiesFinish cm cb
 
 cookieStore :: HawkM (Maybe (Either PGConnection FilePath))

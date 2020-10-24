@@ -28,7 +28,7 @@ scriptModule = "_HaWK__"
 runScript :: T.Text -> HawkM ()
 runScript s = do
   wv <- askWebView
-  #runJavascript wv s Gio.noCancellable Nothing
+  #runJavascript wv s (Nothing :: Maybe Gio.Cancellable) Nothing
 
 setPropertiesBuilder :: [(T.Text, JSValue)] -> TLB.Builder
 setPropertiesBuilder = setObjPropertiesBuilder scriptModule
