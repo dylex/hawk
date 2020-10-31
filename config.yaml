@@ -17,4 +17,5 @@ settings:
   #zoom-text-only: False
 style-sheet: "plain.css"
 cookie-accept-policy: false
+itp: true
 allow-load: false

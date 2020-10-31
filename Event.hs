@@ -56,9 +56,10 @@ applySiteConfig :: SiteConfig -> HawkM ()
 applySiteConfig conf = do
   settings <- askSettings
   liftIO $ mapM_ (uncurry $ setObjectProperty settings) $ HM.toList $ configSettings conf
-  let pol = configCookieAcceptPolicy conf
-  cm <- askCookieManager
-  mapM_ (#setAcceptPolicy cm) pol
+  dm <- askWebsiteDataManager
+  mapM_ (#setItpEnabled dm) $ configITP conf
+  cm <- #getCookieManager dm
+  mapM_ (#setAcceptPolicy cm) $ configCookieAcceptPolicy conf
   loadScripts conf
 
 reapplySiteConfig :: HawkM ()

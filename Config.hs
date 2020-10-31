@@ -109,6 +109,7 @@ data SiteConfig = SiteConfig
     configSettings :: !Settings
 
   -- WebsiteDataManager
+  , configITP :: !(Maybe Bool)
   , configCookieAcceptPolicy :: !(Maybe WK.CookieAcceptPolicy)
 
   -- Hawk
@@ -147,6 +148,7 @@ instance Default Config where
 instance Default SiteConfig where
   def = SiteConfig
     { configSettings = HM.empty
+    , configITP = Just True
     , configCookieAcceptPolicy = Just WK.CookieAcceptPolicyNever
     , configKeepHistory = Just True
     , configAllowLoad = LM.singleton [] ES.empty
@@ -155,6 +157,7 @@ instance Default SiteConfig where
 instance Semigroup SiteConfig where
   a <> b = SiteConfig
     { configSettings           = on HM.union configSettings           a b
+    , configITP                = on (<|>)    configITP                a b
     , configCookieAcceptPolicy = on (<|>)    configCookieAcceptPolicy a b
     , configKeepHistory        = on (<|>)    configKeepHistory        a b
     , configAllowLoad          = on LM.union configAllowLoad          a b
@@ -163,6 +166,7 @@ instance Semigroup SiteConfig where
 instance Monoid SiteConfig where
   mempty = SiteConfig
     { configSettings = HM.empty
+    , configITP = Nothing
     , configCookieAcceptPolicy = Nothing
     , configKeepHistory = Nothing
     , configAllowLoad = LM.empty
@@ -268,6 +272,7 @@ parseSome v = getSome <$> parseJSON v
 parserSiteConfig :: ObjectParser SiteConfig
 parserSiteConfig = do
   configSettings'           .<~ "settings"  $ \s -> fmap (`HM.union` s) . checkSettings <=< parseJSON
+  configITP'                .<- "itp"
   configCookieAcceptPolicy' .<- "cookie-accept-policy"
   configKeepHistory'        .<- "keep-history"
   configAllowLoad'          .<~ "allow-load" $ \s -> fmap (`LM.union` s) . parseJSON
