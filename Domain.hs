@@ -23,7 +23,6 @@ import qualified Data.Aeson as J
 import qualified Data.Aeson.Encoding as JE
 import qualified Data.Aeson.Types as J (typeMismatch, toJSONKeyText, contramapToJSONKeyFunction)
 import           Data.Hashable (Hashable)
-import           Data.Monoid ((<>))
 import           Data.String (IsString(..))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE

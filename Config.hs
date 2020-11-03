@@ -11,6 +11,7 @@ module Config
   , configAllowLoad'
   , configKeepHistory'
   , configCookieAcceptPolicy'
+  , configITP'
   , siteConfig
   , defaultSiteConfig
   , loadConfigFile
@@ -31,6 +32,7 @@ import qualified Data.GI.Base.Overloading as GO
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (isPrefixOf)
+import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy(Proxy))
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -40,9 +42,9 @@ import           Database.PostgreSQL.Typed (PGDatabase(..), defaultPGDatabase, u
 import qualified Language.Haskell.TH as TH
 import           Network.Socket (SockAddr(SockAddrUnix))
 import           System.Environment (getEnv)
-import           System.Directory (doesFileExist, getXdgDirectory, XdgDirectory(XdgCache))
+import           System.Directory (doesFileExist, getXdgDirectory, XdgDirectory(XdgCache, XdgData))
 import           System.FilePath ((</>), (<.>), dropExtension, takeExtension, takeDirectory)
-import           System.IO.Error (ioError, mkIOError, doesNotExistErrorType)
+import           System.IO.Error (mkIOError, doesNotExistErrorType)
 import qualified System.IO.Unsafe as Unsafe
 
 import qualified GI.WebKit2 as WK
@@ -56,6 +58,7 @@ import JS
 import Util
 import GValue
 import GAttributes
+import Filter
 
 type Settings = HM.HashMap String GValue
 
@@ -79,6 +82,8 @@ data Config = Config
   , configDataDirectory :: !(Maybe FilePath)
   , configCacheDirectory :: !(Maybe FilePath)
   , configCookieFile :: !(Maybe FilePath)
+  , configFilterDirectory :: !FilePath
+  , configContentFilter :: J.Value
 
   -- WebContext
   , configCacheModel :: !WK.CacheModel
@@ -115,6 +120,7 @@ data SiteConfig = SiteConfig
   -- Hawk
   , configKeepHistory :: !(Maybe Bool)
   , configAllowLoad :: !(DomainMap (ES.BitSet LoadElement))
+  , configFilter :: !SiteFilter
   }
 
 makeLenses' ''Config
@@ -129,6 +135,8 @@ instance Default Config where
     , configDataDirectory = Nothing
     , configCacheDirectory = Just $ Unsafe.unsafeDupablePerformIO $ getXdgDirectory XdgCache "hawk"
     , configCookieFile = Nothing
+    , configFilterDirectory = Unsafe.unsafeDupablePerformIO $ getXdgDirectory XdgData "hawk/filter"
+    , configContentFilter = J.Null
     , configCacheModel = WK.CacheModelWebBrowser
     , configProxy = Nothing
     , configProxyIgnore = []
@@ -152,6 +160,7 @@ instance Default SiteConfig where
     , configCookieAcceptPolicy = Just WK.CookieAcceptPolicyNever
     , configKeepHistory = Just True
     , configAllowLoad = LM.singleton [] ES.empty
+    , configFilter = def
     }
 
 instance Semigroup SiteConfig where
@@ -161,6 +170,7 @@ instance Semigroup SiteConfig where
     , configCookieAcceptPolicy = on (<|>)    configCookieAcceptPolicy a b
     , configKeepHistory        = on (<|>)    configKeepHistory        a b
     , configAllowLoad          = on LM.union configAllowLoad          a b
+    , configFilter             = on (<>)     configFilter             a b
     }
 
 instance Monoid SiteConfig where
@@ -170,6 +180,7 @@ instance Monoid SiteConfig where
     , configCookieAcceptPolicy = Nothing
     , configKeepHistory = Nothing
     , configAllowLoad = LM.empty
+    , configFilter = mempty
     }
   mappend = (<>)
 
@@ -276,6 +287,7 @@ parserSiteConfig = do
   configCookieAcceptPolicy' .<- "cookie-accept-policy"
   configKeepHistory'        .<- "keep-history"
   configAllowLoad'          .<~ "allow-load" $ \s -> fmap (`LM.union` s) . parseJSON
+  parseSubObject' configFilter' parserSiteFilter
 
 instance J.FromJSON SiteConfig where
   parseJSON = parseObject mempty "site config" parserSiteConfig
@@ -293,6 +305,8 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   modifyObject $ \c -> c{ configCookieFile = (</> "cookies.txt") <$> configDataDirectory c }
   configCookieFile'         .<~ "cookie-file"     $ const parsePath
   -- modifyObject $ \c -> c{ configCookieAcceptPolicy = maybe WK.CookieAcceptPolicyNever (const WK.CookieAcceptPolicyNoThirdParty) $ configCookieFile c }
+  configFilterDirectory'    .<~ "filter-directory" $ \c -> fmap (fromMaybe c) . parsePath
+  configContentFilter'      .<- "content-filter"
   configCacheModel'         .<- "cache-model"
   configProxy'              .<- "proxy"
   configProxyIgnore'        .<- "proxy-ignore"

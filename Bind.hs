@@ -21,7 +21,6 @@ import           Data.Int (Int32)
 import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromMaybe, fromJust)
-import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32)
@@ -139,6 +138,9 @@ toggleCookiePolicy :: HawkM ()
 toggleCookiePolicy = toggleSiteOverride "cookie-accept-policy" configCookieAcceptPolicy'
   (V.fromList [WK.CookieAcceptPolicyNever, WK.CookieAcceptPolicyNoThirdParty, WK.CookieAcceptPolicyAlways])
   [WK.CookieAcceptPolicyAlways]
+
+toggleITP :: HawkM ()
+toggleITP = toggleSiteOverride "itp" configITP' enums []
 
 cookiesSave :: HawkM ()
 cookiesSave = do
@@ -260,12 +262,13 @@ commandBinds = Map.fromList $
   , (([], 'e'), backForward . maybe (-1) (negate . fromIntegral) =<< countMaybe)
   , (([], 'u'), backForward . maybe   1            fromIntegral  =<< countMaybe)
   , (([], 'i'), passThruBind Gdk.KEY_Escape)
+  , (([mod1], 'i'), toggleITP)
   , (([], 'I'), inspector)
+  , (([mod1], 'h'), hawkGoto "hawk:history")
   , (([], 'h'), runScriptCount "window.scrollBy(-20*" ",0)")
   , (([], 't'), runScriptCount "window.scrollBy(0,+20*" ")")
   , (([], 'n'), runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
-  , (([mod1], 'h'), hawkGoto "hawk:history")
   , (([mod1], 's'), toggleAllowLoad LoadSCRIPT)
   , (([mod1], '-'), clearAllowLoad)
 

@@ -11,7 +11,6 @@ import           Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString as BS
 import           Data.IORef (newIORef, modifyIORef', readIORef)
 import           Data.Maybe (fromMaybe)
-import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import           Data.Time.Clock (UTCTime)
 import           Data.Time.LocalTime (utcToLocalZonedTime)

@@ -21,7 +21,6 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Function (on)
 import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe, isJust, mapMaybe)
-import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 #if MIN_VERSION_time(1,8,0)
@@ -32,7 +31,6 @@ import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds, posixSecondsToUTCTime)
 import           Database.PostgreSQL.Typed (PGConnection, pgSQL, pgQuery, pgExecute)
 
-import qualified GI.Gio as Gio
 import qualified GI.Soup as Soup
 import qualified GI.WebKit2 as WK
 
@@ -158,7 +156,7 @@ getSoupCookie s = do
 addCookie :: WK.CookieManager -> Int64 -> Cookie -> IO ()
 addCookie cm t c = do
   s <- newSoupCookie t c
-  WK.cookieManagerAddCookie cm s (Nothing :: Maybe Gio.Cancellable) $ Just $ \_ cb -> do
+  WK.cookieManagerAddCookie cm s noCancellable $ Just $ \_ cb -> do
     WK.cookieManagerAddCookieFinish cm cb
 
 addCookies :: [Cookie] -> HawkM ()
@@ -171,7 +169,7 @@ addCookies s = do
 getCookies :: T.Text -> ([Cookie] -> IO ()) -> HawkM ()
 getCookies uri f = do
   cm <- askCookieManager
-  #getCookies cm uri (Nothing :: Maybe Gio.Cancellable) $ Just $ \_ cb ->
+  #getCookies cm uri noCancellable $ Just $ \_ cb ->
     f =<< mapM getSoupCookie =<< #getCookiesFinish cm cb
 
 cookieStore :: HawkM (Maybe (Either PGConnection FilePath))

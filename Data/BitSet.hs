@@ -6,6 +6,7 @@ module Data.BitSet
   , empty
   , full
   , null
+  , isFull
   , size
   , singleton
   , member
@@ -29,12 +30,10 @@ import           Control.Applicative ((<|>))
 import qualified Data.Aeson as J
 import           Data.Bits (Bits, bit, testBit, setBit, clearBit, complement, (.|.), (.&.), popCount, FiniteBits, finiteBitSize, countLeadingZeros, countTrailingZeros)
 import           Data.List (foldl')
-import           Data.Monoid ((<>))
 import qualified Data.Vector as V
-import           Data.Word (Word)
 
 newtype BitSet a = BitSet Word
-  deriving (Eq, Bits, FiniteBits, J.ToJSON)
+  deriving (Eq, Bits, FiniteBits, J.ToJSON, Show)
 
 instance Semigroup (BitSet a) where
   (<>) = union
@@ -55,6 +54,9 @@ size = popCount
 
 full :: forall a . (Enum a, Bounded a) => BitSet a
 full = BitSet $ pred $ bit $ succ $ fromEnum (maxBound :: a)
+
+isFull :: forall a . (Enum a, Bounded a) => BitSet a -> Bool
+isFull = (succ (fromEnum (maxBound :: a)) ==) . size
 
 singleton :: Enum a => a -> BitSet a
 singleton = bit . fromEnum

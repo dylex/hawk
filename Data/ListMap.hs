@@ -19,6 +19,7 @@ module Data.ListMap
   , lookupFoldPrefixes
   , toList
   , fromList
+  , fromListWith
   ) where
 
 import Prelude hiding (lookup, null, filter)
@@ -32,7 +33,6 @@ import           Data.Foldable (fold)
 import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashMap.Strict as M
-import           Data.Monoid ((<>))
 
 import Util
 
@@ -43,7 +43,6 @@ data ListMap k a = ListMap
   { _listMapValue :: !(Maybe a)
   , _listMap :: !(HM.HashMap k (ListMap k a))
   }
-  deriving (Show)
 
 instance Functor (ListMap k) where
   fmap f (ListMap v x) = ListMap (fmap f v) (fmap (fmap f) x)
@@ -53,7 +52,6 @@ instance Key k => Semigroup (ListMap k a) where
 
 instance Key k => Monoid (ListMap k a) where
   mempty = empty
-  mappend = union
 
 -- this may only appear at the top
 empty :: ListMap k a
@@ -135,6 +133,9 @@ toList (ListMap v m) = maybe id ((:) . ([] ,)) v $ foldMap tal $ M.toList m wher
 
 fromList :: (Foldable f, Key k) => f ([k],a) -> ListMap k a
 fromList = foldMap $ uncurry singleton
+
+fromListWith :: (Foldable f, Key k) => (a -> a -> a) -> f ([k],a) -> ListMap k a
+fromListWith f = foldr (uncurry $ insertWith f) mempty
 
 -- |Expanded list mapping (not the inverse of ToJSON)
 instance (J.FromJSONKey k, J.FromJSON k, Key k) => J.FromJSON1 (ListMap k) where

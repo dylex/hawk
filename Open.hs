@@ -12,6 +12,7 @@ import           Control.Concurrent.MVar (newMVar, modifyMVar, modifyMVar_)
 import           Control.Monad (join, forM, forM_, when, void)
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Builder as BSB
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
 import           Data.Foldable (fold)
@@ -24,6 +25,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
 import qualified Data.Text.Lazy.IO as TLIO
 import qualified Data.Text.IO as TIO
+import qualified Data.Yaml as Y
 import           Database.PostgreSQL.Typed (pgConnect, pgDisconnect)
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeExtension)
@@ -43,12 +45,14 @@ import Bind
 import UI
 import JS
 import Script
+import Content
 import qualified Data.PrefixMap as PM
 import qualified Data.BitSet as ES
 import URI
 import Domain
 import Scheme
 import Event
+import Filter
 
 toHex :: Double -> BSB.Builder
 toHex x
@@ -77,6 +81,8 @@ globalOpen hawkConfig@Config{..} = do
   hawkScript <- forM configScript $ \f -> do
     d <- TIO.readFile f
     WK.userScriptNew d WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
+
+  hawkFilterStore <- WK.userContentFilterStoreNew $ T.pack configFilterDirectory 
 
   hawkWebContext <- WK.webContextNewWithWebsiteDataManager =<<
     G.new WK.WebsiteDataManager
@@ -219,8 +225,9 @@ hawkOpen hawkGlobal@Global{..} parent = do
     WK.PolicyDecisionTypeNewWindowAction -> do
       nd <- G.unsafeCastTo WK.NavigationPolicyDecision d
       req <- G.get nd #request
-      #loadRequest hawkWebView req
       #ignore d
+      print =<< G.get req #uri
+      #loadRequest hawkWebView req
       return True
     _ -> return False
 
@@ -250,6 +257,13 @@ hawkOpen hawkGlobal@Global{..} parent = do
   _ <- G.on hawkUserContentManager #scriptMessageReceived $ run . scriptMessageHandler
   True <- #registerScriptMessageHandler hawkUserContentManager "hawk"
 
+  {-
+  _ <- G.on hawkWindow #scrollEvent $ \e -> do
+    t <- G.get e #type
+    print t
+    return False
+  -}
+
   _ <- G.on hawkWebView #create $ \nav -> do
     print =<< #getNavigationType nav
     -- TODO: newWithRelatedView
@@ -263,7 +277,13 @@ hawkOpen hawkGlobal@Global{..} parent = do
     n <- modifyMVar hawkActive (return . join (,) . pred)
     when (n <= 0) Gtk.mainQuit
 
+  let fr = filterRules $ fmap configFilter configSite
+  BSC.putStrLn $ Y.encode fr
   run $ do
+    when (configContentFilter /= J.Null) $
+      addContentFilter "user" configContentFilter
+    addContentFilter "filter" fr
+
     loadStyleSheet 0
     loadCookies
     uriChanged Nothing

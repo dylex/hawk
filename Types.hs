@@ -20,6 +20,7 @@ module Types
   , modifyRef
   , modifyRefId
   , modifyRef_
+  , noCancellable
   ) where
 
 import           Control.Concurrent.MVar (MVar)
@@ -35,6 +36,7 @@ import           Data.Word (Word32)
 import           Database.PostgreSQL.Typed (PGConnection)
 import qualified Deque.Strict as D
 
+import qualified GI.Gio as Gio
 import qualified GI.Gtk as Gtk
 import qualified GI.WebKit2 as WK
 
@@ -64,6 +66,7 @@ data Global = Global
   
   , hawkDatabase :: !(Maybe PGConnection)
   , hawkClipboard :: !Gtk.Clipboard
+  , hawkFilterStore :: !WK.UserContentFilterStore
   , hawkWebContext :: !WK.WebContext
   , hawkStyleSheets :: !(V.Vector WK.UserStyleSheet)
   , hawkScript :: !(Maybe WK.UserScript)
@@ -135,3 +138,6 @@ modifyRefId f = modifyRef f . (join (,) .)
 
 modifyRef_ :: (Hawk -> IORef a) -> (a -> a) -> HawkM ()
 modifyRef_ f = modifyRef f . ((, ()) .)
+
+noCancellable :: Maybe Gio.Cancellable
+noCancellable = Nothing

@@ -21,7 +21,7 @@ import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (asks)
 import           Data.Bits ((.&.))
 import           Data.Char (isAlphaNum)
-import           Data.Foldable (fold, or)
+import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
 import qualified Data.HashMap.Strict as HM

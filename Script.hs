@@ -7,7 +7,6 @@ module Script
   ) where
 
 import qualified Data.Aeson as J
-import           Data.Monoid ((<>))
 import           Data.String (IsString)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL

@@ -53,6 +53,7 @@ executable hawk
     , vector
     , yaml
     , haskell-gi-base
+    , gi-glib
     , gi-gio
     , gi-gobject
     , gi-gdk
@@ -65,14 +66,18 @@ executable hawk
     Paths_hawk
     Bind
     Config
+    Content
+    ContentFilter
     Cookies
     Data.BitSet
+    Data.EnumVec
     Data.ListMap
     Data.PrefixMap
     Database
     Domain
     Event
     Expand
+    Filter
     GAttributes
     GValue
     JS
@@ -84,6 +89,7 @@ executable hawk
     Types
     UI
     URI
+    URLMap
     Util
   if flag(webkit2_20)
     cpp-options: -DWEBKIT2_20

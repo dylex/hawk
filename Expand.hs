@@ -6,7 +6,6 @@ module Expand
 import           Data.Char (isAlphaNum)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (fromMaybe)
-import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import           System.Directory (getHomeDirectory)
 import qualified System.IO.Unsafe as Unsafe
