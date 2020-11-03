@@ -38,7 +38,6 @@ import qualified GI.WebKit2 as WK
 import Types
 import Config
 import Database
-import Script
 import URI
 import Domain
 import GValue
@@ -60,7 +59,6 @@ applySiteConfig conf = do
   mapM_ (#setItpEnabled dm) $ configITP conf
   cm <- #getCookieManager dm
   mapM_ (#setAcceptPolicy cm) $ configCookieAcceptPolicy conf
-  loadScripts conf
 
 reapplySiteConfig :: HawkM ()
 reapplySiteConfig = applySiteConfig =<< askSiteConfig

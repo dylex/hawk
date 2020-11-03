@@ -18,4 +18,4 @@ settings:
 style-sheet: "plain.css"
 cookie-accept-policy: false
 itp: true
-allow-load: false
+block: [script,font,raw,media,popup]

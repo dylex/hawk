@@ -1,45 +1,5 @@
 namespace _HaWK__ {
 
-  function uriDomain(u: string|undefined): string|undefined {
-    if (!u)
-      return;
-    const a = document.createElement('a');
-    a.href = u;
-    return a.hostname;
-  }
-
-  type DomainMap<a> = {$?:a,[d:string]:DomainMap<a>|a|undefined}
-
-  function lookupDomain<a>(map: DomainMap<a>|undefined, dom: string|undefined): a|undefined {
-    if (!map)
-      return;
-    let v = map.$;
-    if (!dom)
-      return v;
-    const d = dom.split('.').reverse();
-    for (let c of d) {
-      map = <DomainMap<a>>map[c];
-      if (!map) break;
-      if (map.$ != undefined)
-        v = map.$;
-    }
-    return v;
-  }
-
-  type LoadSet = number
-  export var loadSet: {[type:string]:LoadSet}
-  export var allow: DomainMap<LoadSet>|undefined
-
-  type LoadedElement = HTMLElement&{src?:string,href?:string}
-
-  function loadAllow(type: string, src: string|undefined): boolean {
-    const a = lookupDomain(allow, uriDomain(src));
-    const b = !(<LoadSet>a & loadSet[type]);
-    if (b || type === 'SCRIPT' || type === 'IFRAME' || type === 'OBJECT')
-      console.log((b ? "-" : "+") + " " + (<any>type).padEnd(6) + " " + src);
-    return !b;
-  }
-
   function initDocument(doc: HTMLDocument): void {
     /* maybe should be click: */
     doc.addEventListener('focusin', function focusin(event) {
@@ -48,20 +8,6 @@ namespace _HaWK__ {
         (<any>window).webkit.messageHandlers.hawk.postMessage('input');
       }
     }, false);
-    doc.addEventListener('beforeload', function beforeload(event) {
-      const el = <LoadedElement>event.target;
-      if (!(el instanceof HTMLElement))
-        return;
-      if (!loadAllow(el.tagName, el.src || el.href)) {
-        event.preventDefault();
-        if (el.parentNode)
-          el.parentNode.removeChild(el);
-      } else if (el instanceof HTMLIFrameElement) {
-        if (el.contentDocument)
-          /* this does not work, possibly because the document hasn't started loading yet */
-          initDocument(el.contentDocument);
-      }
-    }, true);
   }
 
   initDocument(document);

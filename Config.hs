@@ -8,7 +8,6 @@
 module Config
   ( Config(..)
   , SiteConfig(..)
-  , configAllowLoad'
   , configKeepHistory'
   , configCookieAcceptPolicy'
   , configITP'
@@ -52,9 +51,7 @@ import qualified GI.WebKit2 as WK
 import JSON
 import qualified Data.ListMap as LM
 import qualified Data.PrefixMap as PM
-import qualified Data.BitSet as ES
 import Domain
-import JS
 import Util
 import GValue
 import GAttributes
@@ -119,7 +116,6 @@ data SiteConfig = SiteConfig
 
   -- Hawk
   , configKeepHistory :: !(Maybe Bool)
-  , configAllowLoad :: !(DomainMap (ES.BitSet LoadElement))
   , configFilter :: !SiteFilter
   }
 
@@ -159,7 +155,6 @@ instance Default SiteConfig where
     , configITP = Just True
     , configCookieAcceptPolicy = Just WK.CookieAcceptPolicyNever
     , configKeepHistory = Just True
-    , configAllowLoad = LM.singleton [] ES.empty
     , configFilter = def
     }
 
@@ -169,7 +164,6 @@ instance Semigroup SiteConfig where
     , configITP                = on (<|>)    configITP                a b
     , configCookieAcceptPolicy = on (<|>)    configCookieAcceptPolicy a b
     , configKeepHistory        = on (<|>)    configKeepHistory        a b
-    , configAllowLoad          = on LM.union configAllowLoad          a b
     , configFilter             = on (<>)     configFilter             a b
     }
 
@@ -179,30 +173,12 @@ instance Monoid SiteConfig where
     , configITP = Nothing
     , configCookieAcceptPolicy = Nothing
     , configKeepHistory = Nothing
-    , configAllowLoad = LM.empty
     , configFilter = mempty
     }
   mappend = (<>)
 
-setSelf :: DomainComponents -> DomainMap a -> DomainMap a
-setSelf d m =
-  maybe id (ins d) (LM.lookup s m) $
-  -- maybe id (ins (take 2 d)) (LM.lookup ss m)
-  m
-  where
-  s = domainComponents "."
-  -- ss = domainComponents ".."
-  ins = LM.insertWith $ \_ -> id
-
-setSelfSite :: DomainComponents -> SiteConfig -> SiteConfig
-setSelfSite d c = c
-  { configAllowLoad = setSelf d $ configAllowLoad c
-  }
-
 siteConfig :: Domain -> Config -> SiteConfig
-siteConfig (Domain d) = setSelfSite d
-  . LM.lookupFoldPrefixes d
-  . configSite
+siteConfig (Domain d) = LM.lookupFoldPrefixes d . configSite
 
 defaultSiteConfig :: Config -> SiteConfig
 defaultSiteConfig = siteConfig ""
@@ -286,7 +262,6 @@ parserSiteConfig = do
   configITP'                .<- "itp"
   configCookieAcceptPolicy' .<- "cookie-accept-policy"
   configKeepHistory'        .<- "keep-history"
-  configAllowLoad'          .<~ "allow-load" $ \s -> fmap (`LM.union` s) . parseJSON
   parseSubObject' configFilter' parserSiteFilter
 
 instance J.FromJSON SiteConfig where

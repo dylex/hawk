@@ -148,6 +148,7 @@ cookiesSave = do
   uri <- #getUri wv
   prompt def{ promptPrefix = "save cookies for", promptPurpose = Gtk.InputPurposeUrl, promptInit = fold uri } saveCookies
 
+{-
 toggleAllowLoad :: LoadElement -> HawkM ()
 toggleAllowLoad e = do
   v <- modifySiteOverride configAllowLoad' $ \d c -> do
@@ -164,8 +165,9 @@ toggleAllowLoad e = do
 
 clearAllowLoad :: HawkM ()
 clearAllowLoad = do
-  modifyRef_ hawkSiteOverride $ \o -> o{ configAllowLoad = LM.delete [] $ configAllowLoad o }
+  modifyRef_ hawkSiteOverride $ \o -> o{ configAllowLoad = LM.delete [] $ configAllowLoad o
   setStatusLeft $ "allow-load config"
+-}
 
 backForward :: Int32 -> HawkM ()
 backForward 0 = return ()
@@ -243,7 +245,7 @@ commandBinds = Map.fromList $
   , (([mod1], 'p'), toggleKeepHistory)
   , (([], 'y'), mapM_ copySelection =<< #getUri =<< askWebView)
   , (([], 'G'),   runScript "window.scrollTo({top:document.body.scrollHeight})")
-  , (([mod1], 'f'), toggleAllowLoad LoadIFRAME)
+  -- , (([mod1], 'f'), toggleAllowLoad LoadIFRAME)
   , (([mod1], 'c'), toggleCookiePolicy)
   , (([ctrl, mod1], 'c'), mapM_ saveCookies =<< #getUri =<< askWebView)
   , (([ctrl, mod1], 'C'), cookiesSave)
@@ -269,8 +271,8 @@ commandBinds = Map.fromList $
   , (([], 't'), runScriptCount "window.scrollBy(0,+20*" ")")
   , (([], 'n'), runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
-  , (([mod1], 's'), toggleAllowLoad LoadSCRIPT)
-  , (([mod1], '-'), clearAllowLoad)
+  -- , (([mod1], 's'), toggleAllowLoad LoadSCRIPT)
+  -- , (([mod1], '-'), clearAllowLoad)
 
   , (([], 'Q'), hawkClose)
   , (([], 'J'), prompt def{ promptPrefix = "js" } runScript)

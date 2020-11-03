@@ -5,15 +5,12 @@ module JS
   , quoteRegExp
   , altRegExp
   , setObjPropertiesBuilder
-  , LoadElement(..)
-  , loadElementName
   ) where
 
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Text as JT
 import           Data.Char (isDigit, isAlphaNum)
 import qualified Data.HashMap.Strict as HM
-import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.Lazy.Builder as TLB
 import qualified Data.Vector as V
@@ -74,39 +71,3 @@ propertyRef p
 setObjPropertiesBuilder :: T.Text -> [(T.Text, JSValue)] -> TLB.Builder
 setObjPropertiesBuilder obj = foldMap (\(k, v) ->
   TLB.fromText obj <> propertyRef k <> TLB.singleton '=' <> buildJSValue v <> TLB.singleton ';')
-
-data LoadElement
-  = LoadFRAME
-  | LoadIFRAME
-  | LoadIMG
-  | LoadINPUT
-  | LoadLINK
-  | LoadOBJECT
-  | LoadVIDEO
-  | LoadSCRIPT
-  deriving (Eq, Enum, Bounded)
-
-loadElementName :: LoadElement -> T.Text
-loadElementName LoadFRAME  = "FRAME"
-loadElementName LoadIFRAME = "IFRAME"
-loadElementName LoadIMG    = "IMG"
-loadElementName LoadINPUT  = "INPUT"
-loadElementName LoadLINK   = "LINK"
-loadElementName LoadOBJECT = "OBJECT"
-loadElementName LoadVIDEO  = "VIDEO"
-loadElementName LoadSCRIPT = "SCRIPT"
-
-instance J.ToJSON LoadElement where
-  toJSON = J.String . loadElementName
-
-instance J.FromJSON LoadElement where
-  parseJSON = J.withText "load element" $ ple . T.toUpper where
-    ple "FRAME"  = return LoadFRAME
-    ple "IFRAME" = return LoadIFRAME
-    ple "IMG"    = return LoadIMG
-    ple "INPUT"  = return LoadINPUT
-    ple "LINK"   = return LoadLINK
-    ple "OBJECT" = return LoadOBJECT
-    ple "VIDEO"  = return LoadVIDEO
-    ple "SCRIPT" = return LoadSCRIPT
-    ple _ = fail "Unknown load element"

@@ -2,7 +2,6 @@ module Script
   ( runScript
   , linkSelect
   , scriptMessageHandler
-  , setPropertiesBuilder
   , loadScripts
   ) where
 
@@ -16,7 +15,6 @@ import qualified GI.Gio as Gio
 import qualified GI.Gdk as Gdk
 import qualified GI.WebKit2 as WK
 
-import Config
 import Types
 import UI
 import JS
@@ -28,9 +26,6 @@ runScript :: T.Text -> HawkM ()
 runScript s = do
   wv <- askWebView
   #runJavascript wv s (Nothing :: Maybe Gio.Cancellable) Nothing
-
-setPropertiesBuilder :: [(T.Text, JSValue)] -> TLB.Builder
-setPropertiesBuilder = setObjPropertiesBuilder scriptModule
 
 builderText :: TLB.Builder -> T.Text
 builderText = TL.toStrict . TLB.toLazyText
@@ -50,12 +45,9 @@ scriptMessageHandler :: WK.JavascriptResult -> HawkM ()
 scriptMessageHandler _arg =
   passThruBind Gdk.KEY_Escape
 
-loadScripts :: SiteConfig -> HawkM ()
-loadScripts conf = do
+loadScripts :: HawkM ()
+loadScripts = do
   cm <- askUserContentManager
   #removeAllScripts cm
   #addScript cm =<< asksGlobal globalScript
-  #addScript cm =<< WK.userScriptNew (builderText $ setPropertiesBuilder
-    [ ("allow", JSON $ J.toJSON $ configAllowLoad conf)
-    ]) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
   mapM_ (#addScript cm) =<< asksGlobal hawkScript

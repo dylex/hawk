@@ -70,7 +70,7 @@ globalOpen hawkConfig@Config{..} = do
   css <- TIO.readFile =<< getDataFileName "hawk.css"
   globalStyleSheet <- WK.userStyleSheetNew css WK.UserContentInjectedFramesAllFrames WK.UserStyleLevelUser Nothing Nothing
   js <- TLIO.readFile =<< getDataFileName "hawk.js"
-  globalScript <- WK.userScriptNew (TL.toStrict $ js <> jsconf) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
+  globalScript <- WK.userScriptNew (TL.toStrict js) WK.UserContentInjectedFramesAllFrames WK.UserScriptInjectionTimeStart Nothing Nothing
 
   hawkDatabase <- mapM pgConnect configDatabase
 
@@ -108,10 +108,6 @@ globalOpen hawkConfig@Config{..} = do
   hawkClipboard <- Gtk.clipboardGet {- Gdk.SELECTION_PRIMARY: wrapPtr Gdk.Atom (intPtrToPtr 1) -} =<< Gdk.atomInternStaticString "PRIMARY"
 
   return Global{..}
-  where
-  jsconf = TLB.toLazyText $ TLB.singleton '\n' <> setPropertiesBuilder
-    [ ("loadSet", JSON $ J.object [ loadElementName l J..= ES.singleton l | l <- [minBound..maxBound] ])
-    ]
 
 globalClose :: Global -> IO ()
 globalClose Global{..} = do
@@ -284,6 +280,7 @@ hawkOpen hawkGlobal@Global{..} parent = do
       addContentFilter "user" configContentFilter
     addContentFilter "filter" fr
 
+    loadScripts
     loadStyleSheet 0
     loadCookies
     uriChanged Nothing
