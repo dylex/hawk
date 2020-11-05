@@ -42,6 +42,7 @@ import qualified GI.WebKit2 as WK
 
 import Domain
 import Config
+import Filter (Filters)
 
 data Bindings
   = Command
@@ -85,6 +86,7 @@ data Hawk = Hawk
   , hawkStyleSheet :: !(IORef Int)
   , hawkPromptHistory :: !(IORef (HM.HashMap T.Text PromptHistory))
   , hawkSiteOverride :: !(IORef SiteConfig)
+  , hawkFilters :: !(IORef Filters)
   }
 
 type HawkM = ReaderT Hawk IO

@@ -12,7 +12,6 @@ import           Control.Concurrent.MVar (newMVar, modifyMVar, modifyMVar_)
 import           Control.Monad (join, forM, forM_, when, void)
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Builder as BSB
-import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
 import           Data.Foldable (fold)
@@ -22,10 +21,8 @@ import           Data.IORef (newIORef)
 import           Data.Maybe (isNothing, isJust)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.Builder as TLB
 import qualified Data.Text.Lazy.IO as TLIO
 import qualified Data.Text.IO as TIO
-import qualified Data.Yaml as Y
 import           Database.PostgreSQL.Typed (pgConnect, pgDisconnect)
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeExtension)
@@ -43,11 +40,9 @@ import GValue
 import Cookies
 import Bind
 import UI
-import JS
 import Script
 import Content
 import qualified Data.PrefixMap as PM
-import qualified Data.BitSet as ES
 import URI
 import Domain
 import Scheme
@@ -178,6 +173,7 @@ hawkOpen hawkGlobal@Global{..} parent = do
   hawkStyleSheet <- newIORef undefined
   hawkPromptHistory <- newIORef HM.empty
   hawkSiteOverride <- newIORef mempty
+  hawkFilters <- newIORef $ buildFilters $ configFilter <$> configSite
 
   let hawk = Hawk{..}
       run = runHawkM hawk
@@ -273,13 +269,11 @@ hawkOpen hawkGlobal@Global{..} parent = do
     n <- modifyMVar hawkActive (return . join (,) . pred)
     when (n <= 0) Gtk.mainQuit
 
-  let fr = filterRules $ fmap configFilter configSite
-  BSC.putStrLn $ Y.encode fr
   run $ do
     when (configContentFilter /= J.Null) $
       addContentFilter "user" configContentFilter
-    addContentFilter "filter" fr
 
+    updateFilters
     loadScripts
     loadStyleSheet 0
     loadCookies

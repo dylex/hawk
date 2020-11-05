@@ -49,6 +49,7 @@ executable hawk
     , template-haskell
     , text
     , time
+    , transformers
     , unordered-containers
     , vector
     , yaml
@@ -72,6 +73,7 @@ executable hawk
     Data.BitSet
     Data.EnumVec
     Data.ListMap
+    Data.MonoidList
     Data.PrefixMap
     Database
     Domain

@@ -3,6 +3,7 @@
 
 module ContentFilter
   ( ResourceType(..)
+  , resourceTypeName
   , LoadType(..)
   , DomainList(..)
   , Action(..)
@@ -11,6 +12,7 @@ module ContentFilter
 
 import qualified Data.Aeson as J
 import           Data.Default (Default(..))
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
 
 import Util
@@ -71,7 +73,7 @@ instance J.ToJSON LoadType where
   toJSON = J.String . loadTypeName
 
 data DomainList
-  = DomainIf [Domain]
+  = DomainIf (NE.NonEmpty Domain)
   | DomainUnless [Domain]
 
 domainRep :: JSONRep p r => Domain -> r
@@ -115,7 +117,7 @@ contentRuleRep ContentRule{..} = repObject
     <> (foldMap (("load-type" J..=) . (:[])) contentLoadType)
     <> (case contentDomains of
       DomainUnless [] -> mempty
-      DomainIf l -> "if-domain" `repPair` repList (map domainRep l)
+      DomainIf l -> "if-domain" `repPair` repList (NE.toList $ NE.map domainRep l)
       DomainUnless l -> "unless-domain" `repPair` repList (map domainRep l)))
   <> "action" `repPair` actionRep contentAction
 

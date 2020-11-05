@@ -4,6 +4,7 @@ module Data.PrefixMap
   ( PrefixMap
   , empty
   , null
+  , prefixMap
   , singleton
   , insert
   , delete
@@ -58,9 +59,15 @@ null _ = False
 nonull :: PrefixMap k a -> Maybe (PrefixMap k a)
 nonull = justIf (not . null)
 
+prefixMap :: Key k => k -> PrefixMap k a -> PrefixMap k a
+prefixMap n = Node . M.singleton n
+
+singletonMap :: Key k => [k] -> PrefixMap k a -> PrefixMap k a
+singletonMap [] = id
+singletonMap (n:d) = prefixMap n . singletonMap d
+
 singleton :: Key k => [k] -> a -> PrefixMap k a
-singleton [] = Leaf
-singleton (n:d) = Node . M.singleton n . singleton d
+singleton k = singletonMap k . Leaf
 
 -- |Insert a new entry to the map.  Any existing conflicting entries (prefixes or elongations of the given key) are replaced.
 insert :: Key k => [k] -> a -> PrefixMap k a -> PrefixMap k a

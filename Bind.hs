@@ -20,7 +20,6 @@ import qualified Data.GI.Base.Attributes as GA
 import           Data.Int (Int32)
 import           Data.List ((\\))
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32)
@@ -32,14 +31,14 @@ import qualified GI.WebKit2 as WK
 
 import Types
 import Config
+import Domain
 import Prompt
 import Cookies
 import Script
 import UI
 import Event
-import JS
-import qualified Data.ListMap as LM
-import qualified Data.BitSet as ES
+import Filter
+import Content
 
 settingStatus :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, Show a) => GA.AttrLabelProxy attr -> HawkM ()
 settingStatus attr = do
@@ -82,12 +81,15 @@ zoom f = do
 indexMod :: V.Vector a -> Int -> a
 indexMod v i = v V.! (i `mod` V.length v)
 
-toggle' :: Eq a => V.Vector a -> V.Vector a -> a -> HawkM a
-toggle' opts opts' cur = maybe
-  (indexMod opts $ maybe 0 succ $ V.elemIndex cur opts)
-  (indexMod opts' . fromIntegral) <$> countMaybe
+toggle' :: Eq a => V.Vector a -> V.Vector a -> HawkM (a -> a)
+toggle' opts opts' = do
+  n <- countMaybe
+  return $ \cur -> maybe
+    (indexMod opts $ maybe 0 succ $ V.elemIndex cur opts)
+    (indexMod opts' . fromIntegral)
+    n
 
-toggle :: Eq a => V.Vector a -> a -> HawkM a
+toggle :: Eq a => V.Vector a -> HawkM (a -> a)
 toggle opts = toggle' opts opts
 
 enums :: (Enum a, Bounded a) => V.Vector a
@@ -96,7 +98,7 @@ enums = V.enumFromTo minBound maxBound
 toggleSetting :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, GA.AttrSetC info WK.Settings attr a, Eq a, Show a) => GA.AttrLabelProxy attr -> V.Vector a -> HawkM ()
 toggleSetting attr opts = do
   sets <- askSettings
-  v <- toggle opts =<< G.get sets attr
+  v <- toggle opts <*> G.get sets attr
   G.set sets [attr G.:= v]
   settingStatus attr
 
@@ -112,23 +114,24 @@ toggleUserAgent = do
 toggleStyleSheet :: HawkM ()
 toggleStyleSheet = do
   n <- V.length <$> asksGlobal hawkStyleSheets
-  loadStyleSheet =<< toggle (V.enumFromTo (-1) (pred n)) =<< readRef hawkStyleSheet
+  loadStyleSheet =<< toggle (V.enumFromTo (-1) (pred n)) <*> readRef hawkStyleSheet
 
-modifySiteOverride :: Lens.Lens' SiteConfig a -> (a -> a -> HawkM a) -> HawkM a
+modifySiteOverride :: Lens.Lens' SiteConfig a -> (a -> HawkM (a -> a)) -> HawkM a
 modifySiteOverride f m = do
   d <- asksConfig $ (Lens.^. f) . defaultSiteConfig
-  c <- (Lens.^. f) <$> readRef hawkSiteOverride
-  v <- m d c
-  modifyRef_ hawkSiteOverride $ f Lens..~ v
+  tog <- m d
+  v <- modifyRef hawkSiteOverride $ \s ->
+    let v = tog (s Lens.^. f) in
+    (f Lens..~ v $ s, v)
   reapplySiteConfig
   return v
 
 toggleSiteOverride :: (Eq a, Show a) => T.Text -> Lens.Lens' SiteConfig (Maybe a) -> V.Vector a -> [a] -> HawkM ()
 toggleSiteOverride name f opts noopts = do
-  v <- modifySiteOverride f $ \d c -> do
+  v <- modifySiteOverride f $ \d -> do
     let jopts = Nothing `V.cons` (Just <$> opts)
         opts' = V.fromList $ V.toList jopts \\ (d : map Just noopts)
-    toggle' opts' jopts c
+    toggle' opts' jopts
   setStatusLeft $ name <> T.pack (' ' : maybe "config" show v)
 
 toggleKeepHistory :: HawkM ()
@@ -148,26 +151,15 @@ cookiesSave = do
   uri <- #getUri wv
   prompt def{ promptPrefix = "save cookies for", promptPurpose = Gtk.InputPurposeUrl, promptInit = fold uri } saveCookies
 
-{-
-toggleAllowLoad :: LoadElement -> HawkM ()
-toggleAllowLoad e = do
-  v <- modifySiteOverride configAllowLoad' $ \d c -> do
-    let d' = fold $ get d
-        c' = fromMaybe d' $ get c
-    v <- toggle enums $ mem c'
-    return $ LM.insert [] (bs v c') c
-  setStatusLeft $ "allow-load " <> loadElementName e <> T.pack (' ' : show (mem $ fromJust $ get v))
-  where
-  get = LM.lookup []
-  mem = ES.member e
-  bs True  = ES.insert e
-  bs False = ES.delete e
-
-clearAllowLoad :: HawkM ()
-clearAllowLoad = do
-  modifyRef_ hawkSiteOverride $ \o -> o{ configAllowLoad = LM.delete [] $ configAllowLoad o
-  setStatusLeft $ "allow-load config"
--}
+toggleSiteFilter :: ResourceType -> HawkM ()
+toggleSiteFilter r = do
+  d <- readRef hawkURIDomain
+  tog <- toggle' (V.fromList [Just FilterBlock, Just FilterAllowFirst, Just FilterAllow]) (Nothing `V.cons` fmap Just enums)
+  v <- modifyRef hawkFilters $ \f ->
+    let v = tog $ lookupFilter f mempty d r in
+    (setFilter mempty d r v f, v)
+  updateFilters
+  setStatusLeft $ "site-filter " <> joinDomain d <> T.cons ' ' (resourceTypeName r) <> T.cons ' ' (maybe "default" filterName v)
 
 backForward :: Int32 -> HawkM ()
 backForward 0 = return ()
@@ -245,11 +237,11 @@ commandBinds = Map.fromList $
   , (([mod1], 'p'), toggleKeepHistory)
   , (([], 'y'), mapM_ copySelection =<< #getUri =<< askWebView)
   , (([], 'G'),   runScript "window.scrollTo({top:document.body.scrollHeight})")
-  -- , (([mod1], 'f'), toggleAllowLoad LoadIFRAME)
   , (([mod1], 'c'), toggleCookiePolicy)
   , (([ctrl, mod1], 'c'), mapM_ saveCookies =<< #getUri =<< askWebView)
   , (([ctrl, mod1], 'C'), cookiesSave)
   , (([], 'r'), #reload =<< askWebView)
+  , (([mod1], 'r'), toggleSiteFilter ResourceRaw)
   , (([], 'R'), #reloadBypassCache =<< askWebView)
   , (([], 'l'), #searchNext =<< askFindController)
   , (([mod1], 'l'), toggleSettingBool #enableHtml5LocalStorage)
@@ -271,12 +263,12 @@ commandBinds = Map.fromList $
   , (([], 't'), runScriptCount "window.scrollBy(0,+20*" ")")
   , (([], 'n'), runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
-  -- , (([mod1], 's'), toggleAllowLoad LoadSCRIPT)
-  -- , (([mod1], '-'), clearAllowLoad)
+  , (([mod1], 's'), toggleSiteFilter ResourceScript)
 
   , (([], 'Q'), hawkClose)
   , (([], 'J'), prompt def{ promptPrefix = "js" } runScript)
   , (([], 'm'), hawkGoto "hawk:marks")
+  , (([mod1], 'm'), toggleSiteFilter ResourceMedia)
   , (([], 'z'), #stopLoading =<< askWebView)
   ] where
   mod1 = Gdk.ModifierTypeMod1Mask

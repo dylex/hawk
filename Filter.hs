@@ -1,16 +1,27 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module Filter
-  ( SiteFilter
+  ( ResourceType(..)
+  , resourceTypeName
+  , FilterType(..)
+  , filterName
+  , SiteFilter
   , parserSiteFilter
+  , Filters
+  , buildFilters
+  , lookupFilter
+  , setFilter
   , filterRules
   ) where
 
 import           Control.Monad (forM_)
 import           Data.Default (Default(def))
-import           Data.Maybe (catMaybes)
+import           Data.Foldable (fold)
+import           Data.List (sort)
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
 
 import Util
@@ -18,6 +29,7 @@ import JSON
 import qualified Data.ListMap as LM
 import qualified Data.BitSet as BS
 import qualified Data.EnumVec as EV
+import qualified Data.PrefixMap as PM
 import JS (quoteRegExp)
 import ContentFilter
 import Domain
@@ -31,6 +43,9 @@ data FilterType
   | FilterAllow
   deriving (Eq, Ord, Enum, Bounded, Show)
 
+instance Semigroup FilterType where
+  (<>) = max
+
 filterName :: FilterType -> T.Text
 filterName FilterBlock        = "block"
 filterName FilterBlockThird   = "block-third"
@@ -38,11 +53,10 @@ filterName FilterBlockCookies = "block-cookies"
 filterName FilterAllowFirst   = "allow-first"
 filterName FilterAllow        = "allow"
 
-type FilterMap = EV.EnumVec FilterType
 type ResourceSet = BS.BitSet ResourceType
 
 data SiteFilter = SiteFilter
-  { siteFilters :: FilterMap (URLMap ResourceSet)
+  { siteFilters :: EV.EnumVec FilterType (URLMap ResourceSet)
   , siteHide :: URLMap T.Text
   }
 
@@ -67,35 +81,86 @@ parserSiteFilter = do
 type SiteFilters = DomainMap SiteFilter
 
 data Filters = Filters
-  { filters :: URLMap (DomainMap (FilterMap ResourceSet))
+  { filters :: URLMap (DomainMap (EV.EnumVec ResourceType (Maybe FilterType)))
   , filtersHide :: DomainMap (URLMap T.Text)
   }
 
-permuteFilters :: SiteFilters -> Filters
-permuteFilters sf = Filters
+buildFilters :: SiteFilters -> Filters
+buildFilters sf = Filters
   { filters = LM.fromListWith (LM.unionWith EV.union)
-    [ (u, LM.singleton d (EV.set a v mempty))
+    [ (u, LM.singleton d (EV.set r (Just a) mempty))
     | (d, SiteFilter{ siteFilters = am }) <- LM.toList sf
     , (a, um) <- EV.assocList am
-    , (u, v) <- LM.toList um
+    , (u, rs) <- LM.toList um
+    , r <- BS.toList rs
     ] 
   , filtersHide = fmap siteHide sf
   }
+
+lookupFilter :: Filters -> URL -> Domain -> ResourceType -> Maybe FilterType
+lookupFilter f (Domain u) (Domain d) = EV.get $
+  LM.lookupFoldPrefixes d $
+  LM.lookupFoldPrefixes u (filters f)
+
+setFilter :: URL -> Domain -> ResourceType -> Maybe FilterType -> Filters -> Filters
+setFilter (Domain u) (Domain d) r a f = f
+  { filters = LM.alter (Just . maybe
+        (LM.singleton d $ EV.set r a mempty)
+        (LM.alter (Just . EV.set r a . fold) d))
+      u (filters f) }
+
+data FilterLine = FilterLine
+  { filterType :: !FilterType
+  , filterResources :: !ResourceSet
+  , filterURL :: URL
+  , filterDomains :: NE.NonEmpty Domain
+  } deriving (Eq, Ord, Show)
+
+actionResources :: EV.EnumVec ResourceType (Maybe FilterType) -> EV.EnumVec FilterType ResourceSet
+actionResources = EV.efoldr art mempty where
+  art _ Nothing e = e
+  art r (Just a) e = EV.set a (BS.insert r $ EV.get e a) e
+
+joinFilters :: FilterLine -> FilterLine -> Maybe FilterLine
+joinFilters (FilterLine t1 r1 u1 d1) (FilterLine t2 r2 u2 d2)
+  | t1 == t2 && r1 == r2 && u1 == u2 =
+    Just $ FilterLine t1 r1 u1 $ if d1 == d2 then d1 else d1 <> d2
+    -- should this be union?
+  | otherwise = Nothing
+
+foldWhile :: (a -> a -> Maybe a) -> a -> [a] -> (a, [a])
+foldWhile _ a [] = (a, [])
+foldWhile f a bl@(b:l) = maybe (a, bl) (\r -> foldWhile f r l) $ f a b
+
+combineFilters :: [FilterLine] -> [FilterLine]
+combineFilters [] = []
+combineFilters (f:l) = a : combineFilters b where
+  (a, b) = foldWhile joinFilters f l
+
+sortFilters :: URLMap (DomainMap (EV.EnumVec ResourceType (Maybe FilterType))) -> [FilterLine]
+sortFilters f = concat
+  [ combineFilters $ sort
+    [ FilterLine a r (Domain u) (Domain d NE.:| [])
+    | (d, rm) <- PM.toList dg
+    , (a, r) <- EV.assocList $ actionResources rm
+    , not $ BS.null r
+    ]
+  | (u, dm) <- LM.toList f
+  , dg <- LM.groupPrefixes dm
+  ]
 
 urlFilter :: URL -> T.Text
 urlFilter (Domain []) = "."
 urlFilter d = "^[^:]+:(//)?([^/:]*\\.)?" <> quoteRegExp (joinDomain d) <> "[/:]"
 
-domainFilter :: Domain -> DomainList
-domainFilter (Domain []) = DomainUnless []
-domainFilter d = DomainIf [d]
+domainFilter :: NE.NonEmpty Domain -> DomainList
+domainFilter (Domain [] NE.:| _) = DomainUnless []
+domainFilter d = DomainIf d
 
-filterRule :: URL -> Domain -> FilterType -> ResourceSet -> Maybe ContentRule
-filterRule u d f r
-  | BS.null r = Nothing
-  | otherwise = Just $ ContentRule (urlFilter u) (if BS.isFull r then [] else BS.toList r) (domainFilter d) lt a
+lineRule :: FilterLine -> ContentRule
+lineRule (FilterLine t r u d) = ContentRule (urlFilter u) (if BS.isFull r then [] else BS.toList r) (domainFilter d) lt a
   where
-  (lt, a) = case f of
+  (lt, a) = case t of
     FilterBlock -> (Nothing, ActionBlock)
     FilterBlockThird -> (Just LoadThird, ActionBlock)
     FilterBlockCookies -> (Nothing, ActionBlockCookies)
@@ -103,18 +168,12 @@ filterRule u d f r
     FilterAllow -> (Nothing, ActionIgnorePrevious)
 
 hideRule :: URL -> Domain -> T.Text -> ContentRule
-hideRule u d = ContentRule (urlFilter u) [] (domainFilter d) Nothing . ActionDisplayNone
+hideRule u d = ContentRule (urlFilter u) [] (domainFilter (d NE.:| [])) Nothing . ActionDisplayNone
 
-filterRules :: SiteFilters -> [ContentRule]
-filterRules df = catMaybes
-  [ filterRule (Domain u) (Domain d) a rm
-  | (u, dm) <- LM.toList fm
-  , (d, am) <- LM.toList dm
-  , (a, rm) <- EV.assocList am
-  ] ++
+filterRules :: Filters -> [ContentRule]
+filterRules (Filters fm hm) =
+  map lineRule (sortFilters fm) ++
   [ hideRule (Domain u) (Domain d) h
   | (d, um) <- LM.toList hm
   , (u, h) <- LM.toList um
   ]
-  where
-  Filters fm hm = permuteFilters df

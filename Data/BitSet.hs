@@ -33,7 +33,7 @@ import           Data.List (foldl')
 import qualified Data.Vector as V
 
 newtype BitSet a = BitSet Word
-  deriving (Eq, Bits, FiniteBits, J.ToJSON, Show)
+  deriving (Eq, Ord, Bits, FiniteBits, J.ToJSON, Show)
 
 instance Semigroup (BitSet a) where
   (<>) = union

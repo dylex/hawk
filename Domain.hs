@@ -34,10 +34,15 @@ import qualified Data.ListMap as LM
 import JS
 
 newtype DomainComponent = DomainComponent{ domainComponentText :: T.Text }
-  deriving (Eq, Ord, Hashable, Show, IsString)
+  deriving (Eq, Ord, Hashable, IsString)
 type DomainComponents = [DomainComponent]
 newtype Domain = Domain{ domainComponents :: DomainComponents }
-  deriving (Eq, Ord, Semigroup, Monoid, Hashable, Show)
+  deriving (Eq, Ord, Semigroup, Monoid, Hashable)
+
+instance Show DomainComponent where
+  show = show . domainComponentText
+instance Show Domain where
+  show = show . joinDomain
 
 splitDomain :: T.Text -> Domain
 splitDomain = Domain . map DomainComponent . de . reverse . T.split ('.'==) where

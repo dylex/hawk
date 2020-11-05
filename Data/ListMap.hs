@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TupleSections #-}
 
@@ -20,6 +21,7 @@ module Data.ListMap
   , toList
   , fromList
   , fromListWith
+  , groupPrefixes
   ) where
 
 import Prelude hiding (lookup, null, filter)
@@ -35,6 +37,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashMap.Strict as M
 
 import Util
+import qualified Data.PrefixMap as PM
+import Data.MonoidList
 
 type Key k = (Eq k, Hashable k)
 
@@ -42,7 +46,7 @@ type Key k = (Eq k, Hashable k)
 data ListMap k a = ListMap
   { _listMapValue :: !(Maybe a)
   , _listMap :: !(HM.HashMap k (ListMap k a))
-  }
+  } deriving (Show)
 
 instance Functor (ListMap k) where
   fmap f (ListMap v x) = ListMap (fmap f v) (fmap (fmap f) x)
@@ -128,14 +132,31 @@ lookupFoldPrefixes l (ListMap v m) = lp l <> fold v where
   lp (n:d) = foldMap (lookupFoldPrefixes d) $ M.lookup n m
 
 toList :: ListMap k a -> [([k],a)]
-toList (ListMap v m) = maybe id ((:) . ([] ,)) v $ foldMap tal $ M.toList m where
-  tal (n,d) = map (first (n:)) $ toList d
+toList (ListMap v m) = maybe id ((:) . ([] ,)) v $
+#if MIN_VERSION_unordered_containers(0,2,11)
+  M.foldMapWithKey tal
+#else
+  M.foldrWithKey (\n d -> (tal n d ++)) []
+#endif
+  m
+  where
+  tal n = map (first (n:)) . toList
 
 fromList :: (Foldable f, Key k) => f ([k],a) -> ListMap k a
 fromList = foldMap $ uncurry singleton
 
 fromListWith :: (Foldable f, Key k) => (a -> a -> a) -> f ([k],a) -> ListMap k a
 fromListWith f = foldr (uncurry $ insertWith f) mempty
+
+groupPrefixes :: Key k => ListMap k a -> [PM.PrefixMap k a]
+groupPrefixes (ListMap v m) = maybe id ((:) . PM.singleton []) v $ monoidList $
+#if MIN_VERSION_unordered_containers(0,2,11)
+  M.foldMapWithKey tap
+#else
+  M.foldrWithKey (\n d -> (tap n d <>)) (MonoidList []) m
+#endif
+  where
+  tap n = MonoidList . map (PM.prefixMap n) . groupPrefixes
 
 -- |Expanded list mapping (not the inverse of ToJSON)
 instance (J.FromJSONKey k, J.FromJSON k, Key k) => J.FromJSON1 (ListMap k) where

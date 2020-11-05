@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 
 module Data.EnumVec
   ( EnumVec
@@ -12,6 +13,7 @@ module Data.EnumVec
   , set
   , get
   , empty
+  , efoldr
   , unionWith
   , union
   , lens
@@ -23,7 +25,7 @@ import           Data.Proxy (Proxy(Proxy), asProxyTypeOf)
 import qualified Data.Vector as V
 
 newtype EnumVec e v = EnumVec { enumVector :: V.Vector v }
-  deriving (J.ToJSON)
+  deriving (Eq, Ord, Show, J.ToJSON)
 type EnumIx e = (Enum e, Bounded e)
 
 instance Semigroup v => Semigroup (EnumVec e v) where
@@ -44,8 +46,13 @@ fromList = EnumVec . V.fromListN (len (Proxy :: Proxy e))
 toList :: EnumVec e v -> [v]
 toList = V.toList . enumVector
 
+efoldr :: EnumIx e => (e -> v -> a -> a) -> a -> EnumVec e v -> a
+efoldr f a = V.ifoldr (f . toEnum) a . enumVector
+
 assocList :: forall e v . EnumIx e => EnumVec e v -> [(e,v)]
-assocList = zip (enumFromTo (minBound :: e) (maxBound :: e)) . toList
+assocList = 
+  V.ifoldr (\i -> (:) . (toEnum i, )) [] . enumVector
+  -- zip (enumFromTo (minBound :: e) (maxBound :: e)) . toList
 
 enumVec :: forall e v . EnumIx e => v -> EnumVec e v
 enumVec = EnumVec . V.replicate (len (Proxy :: Proxy e))
