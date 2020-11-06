@@ -10,14 +10,16 @@ module Data.EnumVec
   , toList
   , assocList
   , enumVec
-  , set
-  , get
+  , insert
+  , lookup
   , empty
   , efoldr
   , unionWith
   , union
   , lens
   ) where
+
+import Prelude hiding (lookup)
 
 import qualified Control.Lens as Lens
 import qualified Data.Aeson as J
@@ -57,11 +59,11 @@ assocList =
 enumVec :: forall e v . EnumIx e => v -> EnumVec e v
 enumVec = EnumVec . V.replicate (len (Proxy :: Proxy e))
 
-get :: EnumIx e => EnumVec e v -> e -> v
-get v e = enumVector v V.! ix e
+lookup :: EnumIx e => e -> EnumVec e v -> v
+lookup e v = enumVector v V.! ix e
 
-set :: EnumIx e => e -> v -> EnumVec e v -> EnumVec e v
-set e v = EnumVec . (V.// [(ix e, v)]) . enumVector
+insert :: EnumIx e => e -> v -> EnumVec e v -> EnumVec e v
+insert e v = EnumVec . (V.// [(ix e, v)]) . enumVector
 
 unionWith :: (v -> v -> v) -> EnumVec e v -> EnumVec e v -> EnumVec e v
 unionWith f a b = EnumVec $ V.zipWith f (enumVector a) (enumVector b)
@@ -73,4 +75,4 @@ union :: Semigroup v => EnumVec e v -> EnumVec e v -> EnumVec e v
 union = unionWith (<>)
 
 lens :: EnumIx e => e -> Lens.Lens' (EnumVec e v) v
-lens e = Lens.lens (flip get e) (flip $ set e)
+lens e = Lens.lens (lookup e) (flip $ insert e)

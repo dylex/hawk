@@ -47,7 +47,6 @@ import URI
 import Domain
 import Scheme
 import Event
-import Filter
 
 toHex :: Double -> BSB.Builder
 toHex x
@@ -173,7 +172,7 @@ hawkOpen hawkGlobal@Global{..} parent = do
   hawkStyleSheet <- newIORef undefined
   hawkPromptHistory <- newIORef HM.empty
   hawkSiteOverride <- newIORef mempty
-  hawkFilters <- newIORef $ buildFilters $ configFilter <$> configSite
+  hawkFilters <- newIORef $ configFilters hawkConfig
 
   let hawk = Hawk{..}
       run = runHawkM hawk
@@ -271,14 +270,14 @@ hawkOpen hawkGlobal@Global{..} parent = do
 
   run $ do
     when (configContentFilter /= J.Null) $
-      addContentFilter "user" configContentFilter
+      addContentFilter "user" configContentFilter (return ())
 
-    updateFilters
     loadScripts
     loadStyleSheet 0
     loadCookies
     uriChanged Nothing
-    mapM_ hawkGoto configURI
+    updateFilters $
+      mapM_ hawkGoto configURI
 
   return hawk
 

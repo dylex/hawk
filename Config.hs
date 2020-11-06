@@ -13,6 +13,7 @@ module Config
   , configITP'
   , siteConfig
   , defaultSiteConfig
+  , configFilters
   , loadConfigFile
   , baseConfigFile
   , useTPGConfig
@@ -182,6 +183,9 @@ siteConfig (Domain d) = LM.lookupFoldPrefixes d . configSite
 
 defaultSiteConfig :: Config -> SiteConfig
 defaultSiteConfig = siteConfig ""
+
+configFilters :: Config -> Filters
+configFilters = buildFilters . fmap configFilter . configSite
 
 instance J.FromJSON PGDatabase where
   parseJSON = J.withObject "database" $ \d -> do

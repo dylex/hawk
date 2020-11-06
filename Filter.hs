@@ -44,7 +44,7 @@ data FilterType
   deriving (Eq, Ord, Enum, Bounded, Show)
 
 instance Semigroup FilterType where
-  (<>) = max
+  (<>) = min
 
 filterName :: FilterType -> T.Text
 filterName FilterBlock        = "block"
@@ -63,7 +63,7 @@ data SiteFilter = SiteFilter
 makeLenses' ''SiteFilter
 
 instance Default SiteFilter where
-  def = SiteFilter (EV.set FilterBlock (LM.singleton [] BS.full) mempty) mempty
+  def = SiteFilter (EV.insert FilterBlock (LM.singleton [] BS.full) mempty) mempty
 
 instance Semigroup SiteFilter where
   SiteFilter r1 h1 <> SiteFilter r2 h2 =
@@ -88,7 +88,7 @@ data Filters = Filters
 buildFilters :: SiteFilters -> Filters
 buildFilters sf = Filters
   { filters = LM.fromListWith (LM.unionWith EV.union)
-    [ (u, LM.singleton d (EV.set r (Just a) mempty))
+    [ (u, LM.singleton d (EV.insert r (Just a) mempty))
     | (d, SiteFilter{ siteFilters = am }) <- LM.toList sf
     , (a, um) <- EV.assocList am
     , (u, rs) <- LM.toList um
@@ -98,15 +98,15 @@ buildFilters sf = Filters
   }
 
 lookupFilter :: Filters -> URL -> Domain -> ResourceType -> Maybe FilterType
-lookupFilter f (Domain u) (Domain d) = EV.get $
-  LM.lookupFoldPrefixes d $
-  LM.lookupFoldPrefixes u (filters f)
+lookupFilter f (Domain u) (Domain d) r = EV.lookup r =<<
+  LM.lookup d =<<
+  LM.lookup u (filters f)
 
 setFilter :: URL -> Domain -> ResourceType -> Maybe FilterType -> Filters -> Filters
 setFilter (Domain u) (Domain d) r a f = f
   { filters = LM.alter (Just . maybe
-        (LM.singleton d $ EV.set r a mempty)
-        (LM.alter (Just . EV.set r a . fold) d))
+        (LM.singleton d $ EV.insert r a mempty)
+        (LM.alter (Just . EV.insert r a . fold) d))
       u (filters f) }
 
 data FilterLine = FilterLine
@@ -119,7 +119,7 @@ data FilterLine = FilterLine
 actionResources :: EV.EnumVec ResourceType (Maybe FilterType) -> EV.EnumVec FilterType ResourceSet
 actionResources = EV.efoldr art mempty where
   art _ Nothing e = e
-  art r (Just a) e = EV.set a (BS.insert r $ EV.get e a) e
+  art r (Just a) e = EV.insert a (BS.insert r $ EV.lookup a e) e
 
 joinFilters :: FilterLine -> FilterLine -> Maybe FilterLine
 joinFilters (FilterLine t1 r1 u1 d1) (FilterLine t2 r2 u2 d2)

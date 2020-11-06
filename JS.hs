@@ -1,15 +1,12 @@
 module JS
   ( JSValue(..)
   , buildJSValues
-  , buildJSValue
   , quoteRegExp
   , altRegExp
-  , setObjPropertiesBuilder
   ) where
 
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Text as JT
-import           Data.Char (isDigit, isAlphaNum)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Text.Lazy.Builder as TLB
@@ -56,18 +53,3 @@ altRegExp :: [T.Text] -> T.Text
 altRegExp [] = T.empty
 altRegExp [x] = x
 altRegExp l = "(?:" <> T.intercalate (T.singleton '|') l <> ")"
-
-isIdentifier :: T.Text -> Bool
-isIdentifier s = not (T.null s) && not (isDigit (T.head s)) && T.all isJSIdent s where
-  isJSIdent '_' = True
-  isJSIdent '$' = True
-  isJSIdent x = isAlphaNum x
-
-propertyRef :: T.Text -> TLB.Builder
-propertyRef p
-  | isIdentifier p = TLB.singleton '.' <> TLB.fromText p
-  | otherwise = TLB.singleton '[' <> JT.encodeToTextBuilder (J.String p) <> TLB.singleton ']'
-
-setObjPropertiesBuilder :: T.Text -> [(T.Text, JSValue)] -> TLB.Builder
-setObjPropertiesBuilder obj = foldMap (\(k, v) ->
-  TLB.fromText obj <> propertyRef k <> TLB.singleton '=' <> buildJSValue v <> TLB.singleton ';')

@@ -154,12 +154,16 @@ cookiesSave = do
 toggleSiteFilter :: ResourceType -> HawkM ()
 toggleSiteFilter r = do
   d <- readRef hawkURIDomain
-  tog <- toggle' (V.fromList [Just FilterBlock, Just FilterAllowFirst, Just FilterAllow]) (Nothing `V.cons` fmap Just enums)
+  tog <- toggle' (V.fromList [Just FilterAllowFirst, Just FilterAllow, Just FilterBlock]) (Nothing `V.cons` fmap Just enums)
   v <- modifyRef hawkFilters $ \f ->
     let v = tog $ lookupFilter f mempty d r in
     (setFilter mempty d r v f, v)
-  updateFilters
-  setStatusLeft $ "site-filter " <> joinDomain d <> T.cons ' ' (resourceTypeName r) <> T.cons ' ' (maybe "default" filterName v)
+  updateFilters $
+    setStatusLeft $ "site-filter " <> joinDomain d <> T.cons ' ' (resourceTypeName r) <> T.cons ' ' (maybe "default" filterName v)
+
+resetSiteFilter :: HawkM ()
+resetSiteFilter = resetFilters $
+  setStatusLeft "site-filter default"
 
 backForward :: Int32 -> HawkM ()
 backForward 0 = return ()
@@ -264,6 +268,7 @@ commandBinds = Map.fromList $
   , (([], 'n'), runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
   , (([mod1], 's'), toggleSiteFilter ResourceScript)
+  , (([mod1], '-'), resetSiteFilter)
 
   , (([], 'Q'), hawkClose)
   , (([], 'J'), prompt def{ promptPrefix = "js" } runScript)
