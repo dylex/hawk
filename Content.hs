@@ -40,7 +40,6 @@ updateFilters :: HawkM () -> HawkM ()
 updateFilters callback = do
   f <- readRef hawkFilters
   let r = filterRules f
-  liftIO $ BSC.putStrLn $ Y.encode r
   setFilters r callback
 
 resetFilters :: HawkM () -> HawkM ()
