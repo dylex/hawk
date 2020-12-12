@@ -18,7 +18,7 @@ import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
 import qualified Data.GI.Base.Attributes as GA
 import           Data.Int (Int32)
-import           Data.List ((\\))
+import           Data.List ((\\), foldl')
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -151,13 +151,13 @@ cookiesSave = do
   uri <- #getUri wv
   prompt def{ promptPrefix = "save cookies for", promptPurpose = Gtk.InputPurposeUrl, promptInit = fold uri } saveCookies
 
-toggleSiteFilter :: ResourceType -> HawkM ()
-toggleSiteFilter r = do
+toggleSiteFilter :: ResourceType -> [ResourceType] -> HawkM ()
+toggleSiteFilter r rs = do
   d <- readRef hawkURIDomain
   tog <- toggle' (V.fromList [Just FilterAllowFirst, Just FilterAllow, Just FilterBlock]) (Nothing `V.cons` fmap Just enums)
   v <- modifyRef hawkFilters $ \f ->
     let v = tog $ lookupFilter f mempty d r in
-    (setFilter mempty d r v f, v)
+    (foldl' (\f' r' -> setFilter mempty d r' v f') (setFilter mempty d r v f) rs, v)
   updateFilters $
     setStatusLeft $ "site-filter " <> joinDomain d <> T.cons ' ' (resourceTypeName r) <> T.cons ' ' (maybe "default" filterName v)
 
@@ -245,7 +245,6 @@ commandBinds = Map.fromList $
   , (([ctrl, mod1], 'c'), mapM_ saveCookies =<< #getUri =<< askWebView)
   , (([ctrl, mod1], 'C'), cookiesSave)
   , (([], 'r'), #reload =<< askWebView)
-  , (([mod1], 'r'), toggleSiteFilter ResourceRaw)
   , (([], 'R'), #reloadBypassCache =<< askWebView)
   , (([], 'l'), #searchNext =<< askFindController)
   , (([mod1], 'l'), toggleSettingBool #enableHtml5LocalStorage)
@@ -267,13 +266,13 @@ commandBinds = Map.fromList $
   , (([], 't'), runScriptCount "window.scrollBy(0,+20*" ")")
   , (([], 'n'), runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
-  , (([mod1], 's'), toggleSiteFilter ResourceScript)
+  , (([mod1], 's'), toggleSiteFilter ResourceScript [ResourceRaw])
   , (([mod1], '-'), resetSiteFilter)
 
   , (([], 'Q'), hawkClose)
   , (([], 'J'), prompt def{ promptPrefix = "js" } runScript)
   , (([], 'm'), hawkGoto "hawk:marks")
-  , (([mod1], 'm'), toggleSiteFilter ResourceMedia)
+  , (([mod1], 'm'), toggleSiteFilter ResourceMedia [ResourcePopup])
   , (([], 'z'), #stopLoading =<< askWebView)
   ] where
   mod1 = Gdk.ModifierTypeMod1Mask

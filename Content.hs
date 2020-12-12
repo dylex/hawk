@@ -4,13 +4,10 @@ module Content
   , resetFilters
   ) where
 
-import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Trans.Reader (ask)
 import qualified Data.Aeson as J
-import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
-import qualified Data.Yaml as Y
 
 import qualified GI.GLib as GLib
 
