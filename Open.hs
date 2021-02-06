@@ -227,8 +227,9 @@ hawkOpen hawkGlobal@Global{..} parent = do
     else void $ G.on hawkWebView #loadFailedWithTlsErrors $ \u c f -> case uriDomain u of
       Just d | isJust (PM.lookupPrefix (domainComponents d) configTLSAccept) -> do
         putStrLn $ "Accepting TLS Certificate: " ++ show d ++ " " ++ show f
+        -- this doesn't work for some reason:
         #allowTlsCertificateForHost hawkWebContext c $ joinDomain d
-        return True
+        return False
       _ -> do
         putStrLn $ "Rejecting TLS Certificate: " ++ show u ++ " " ++ show f
         return False

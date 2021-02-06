@@ -165,6 +165,14 @@ resetSiteFilter :: HawkM ()
 resetSiteFilter = resetFilters $
   setStatusLeft "site-filter default"
 
+toggleTLSAccept :: HawkM ()
+toggleTLSAccept = do
+  tog <- toggle $ V.fromList [WK.TLSErrorsPolicyFail, WK.TLSErrorsPolicyIgnore]
+  wc <- askWebContext
+  p <- tog <$> #getTlsErrorsPolicy wc
+  #setTlsErrorsPolicy wc p
+  setStatusLeft $ "tls-accept " <> T.pack (show p)
+
 backForward :: Int32 -> HawkM ()
 backForward 0 = return ()
 backForward (-1) = #goBack =<< askWebView
@@ -225,6 +233,7 @@ commandBinds = Map.fromList $
   [ (([], '0'), zero)
   , (([], ')'), digit 0)
   , (([], '@'), toggleSettingBool #enableCaretBrowsing)
+  , (([], '#'), prompt def{ promptPrefix = "link" } (\l -> linkSelect l l)) 
   , (([], '$'), runScript "window.scrollTo({left:document.body.scrollWidth})")
   , (([], '%'), toggleSettingBool #enableJavascript)
   , (([], '^'), runScript "window.scrollTo({left:0})")
@@ -264,6 +273,7 @@ commandBinds = Map.fromList $
   , (([mod1], 'h'), hawkGoto "hawk:history")
   , (([], 'h'), runScriptCount "window.scrollBy(-20*" ",0)")
   , (([], 't'), runScriptCount "window.scrollBy(0,+20*" ")")
+  , (([mod1], 't'), toggleTLSAccept)
   , (([], 'n'), runScriptCount "window.scrollBy(0,-20*" ")")
   , (([], 's'), runScriptCount "window.scrollBy(+20*" ",0)")
   , (([mod1], 's'), toggleSiteFilter ResourceScript [ResourceRaw])
