@@ -1,26 +1,26 @@
-resolver: lts-16.31
+resolver: lts-17.11
 packages:
 - .
 extra-deps:
-- postgresql-typed-0.6.1.1
+#- postgresql-typed-0.6.1.1
 #- gi-webkit2-4.0.25
 #- gi-soup-2.4.22
 #- gi-javascriptcore-4.0.21
-- haskell-gi-0.24.5
-- haskell-gi-base-0.24.3
+#- haskell-gi-0.24.5
+#- haskell-gi-base-0.24.3
 - gi-webkit2-4.0.26
 - gi-soup-2.4.23
 - gi-javascriptcore-4.0.22
-- gi-atk-2.0.22
-- gi-cairo-1.0.24
-- gi-gdk-3.0.23
-- gi-gio-2.0.27
-- gi-glib-2.0.24
-- gi-gobject-2.0.24
-- gi-gdkpixbuf-2.0.24
-- gi-gtk-3.0.36
-- gi-pango-1.0.23
-- gi-harfbuzz-0.0.3
+#- gi-atk-2.0.22
+#- gi-cairo-1.0.24
+#- gi-gdk-3.0.23
+#- gi-gio-2.0.27
+#- gi-glib-2.0.24
+#- gi-gobject-2.0.24
+#- gi-gdkpixbuf-2.0.24
+#- gi-gtk-3.0.36
+#- gi-pango-1.0.23
+#- gi-harfbuzz-0.0.3
 build:
   #haddock: true
 flags:

@@ -258,11 +258,10 @@ hawkOpen hawkGlobal@Global{..} parent = do
 
   _ <- G.on hawkWebView #create $ \nav -> do
     print =<< #getNavigationType nav
-    -- TODO: newWithRelatedView
     child@Hawk{ hawkWebView = wv } <- hawkOpen hawkGlobal{ hawkConfig = hawkConfig{ configURI = Nothing } } (Just hawk)
     _ <- G.on wv #readyToShow $
       hawkShow child
-    Gtk.toWidget wv
+    Gtk.toWidget =<< G.withManagedPtr wv (G.wrapObject WK.WebView)
 
   modifyMVar_ hawkActive (return . succ)
   _ <- G.after hawkWindow #destroy $ do

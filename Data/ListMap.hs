@@ -153,8 +153,9 @@ groupPrefixes (ListMap v m) = maybe id ((:) . PM.singleton []) v $ monoidList $
 #if MIN_VERSION_unordered_containers(0,2,11)
   M.foldMapWithKey tap
 #else
-  M.foldrWithKey (\n d -> (tap n d <>)) (MonoidList []) m
+  M.foldrWithKey (\n d -> (tap n d <>)) (MonoidList [])
 #endif
+  m
   where
   tap n = MonoidList . map (PM.prefixMap n) . groupPrefixes
 
