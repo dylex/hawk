@@ -29,9 +29,8 @@ import           Data.Aeson (parseJSON)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Encoding as J (pair, list)
 import qualified Data.Aeson.Internal as J (JSONPathElement(Key))
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Aeson.Types as J (Parser, parseEither, emptyObject, Pair)
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Text as T
 
 instance J.KeyValue [J.Pair] where
   k .= v = [k J..= v]
@@ -40,7 +39,7 @@ type Pairs s = (J.KeyValue s, Monoid s)
 
 class (J.KeyValue p, Monoid p) => JSONRep p r | r -> p, p -> r where
   repJSON :: J.ToJSON a => a -> r
-  repPair :: T.Text -> r -> p
+  repPair :: J.Key -> r -> p
   repObject :: p -> r
   repList :: [r] -> r
 
@@ -62,26 +61,26 @@ defaultParse = either error id $ J.parseEither parseJSON J.emptyObject
 type ObjectParserM a = StateT (J.Object, a) J.Parser
 type ObjectParser a = ObjectParserM a ()
 
-(.<~) :: Lens' b a -> T.Text -> (a -> J.Value -> J.Parser a) -> ObjectParser b
+(.<~) :: Lens' b a -> J.Key -> (a -> J.Value -> J.Parser a) -> ObjectParser b
 (.<~) f k p = do
   (o, r) <- get
   mapM_
     (\v -> do
       x <- lift $ p (r ^. f) v J.<?> J.Key k
-      put (HM.delete k o, f .~ x $ r))
-    $ HM.lookup k o
+      put (KM.delete k o, f .~ x $ r))
+    $ KM.lookup k o
 
-(.<>) :: (J.FromJSON a, Monoid a) => Lens' b a -> T.Text -> ObjectParser b
+(.<>) :: (J.FromJSON a, Monoid a) => Lens' b a -> J.Key -> ObjectParser b
 (.<>) f k = f .<~ k $ \s -> fmap (<> s) . parseJSON
 
-(.<-) :: J.FromJSON a => Lens' b a -> T.Text -> ObjectParser b
+(.<-) :: J.FromJSON a => Lens' b a -> J.Key -> ObjectParser b
 (.<-) f k = f .<~ k $ const parseJSON
 
 parseObject :: a -> String -> ObjectParser a -> J.Value -> J.Parser a
 parseObject a _ _ J.Null = return a
 parseObject a n p v = J.withObject n (\o -> do
   (o', a') <- execStateT p (o, a)
-  unless (HM.null o') $ fail $ "Unknown fields in " ++ n ++ ": " ++ show (HM.keys o')
+  unless (KM.null o') $ fail $ "Unknown fields in " ++ n ++ ": " ++ show (KM.keys o')
   return a') v
 
 parseSubObject :: b -> ObjectParser b -> ObjectParserM a b

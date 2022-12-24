@@ -1,24 +1,24 @@
-resolver: lts-18.28
+resolver: lts-19.33
 packages:
 - .
 extra-deps:
-- haskell-gi-0.26.0
-- haskell-gi-base-0.26.0
-- gi-webkit2-4.0.28
-- gi-soup-2.4.25
-- gi-javascriptcore-4.0.24
-- gi-atk-2.0.24
-- gi-cairo-1.0.26
-- gi-gdk-3.0.25
-- gi-gio-2.0.29
-- gi-glib-2.0.26
-- gi-gobject-2.0.27
-- gi-gdkpixbuf-2.0.28
-- gi-gtk-3.0.38
-- gi-pango-1.0.26
-- gi-harfbuzz-0.0.6
-- gi-freetype2-2.0.1
-- gi-gmodule-2.0.2
+#- haskell-gi-0.26.0
+#- haskell-gi-base-0.26.0
+- gi-webkit2-4.0.29
+- gi-soup-2.4.26
+#- gi-javascriptcore-4.0.24
+#- gi-atk-2.0.24
+#- gi-cairo-1.0.26
+#- gi-gdk-3.0.25
+#- gi-gio-2.0.29
+#- gi-glib-2.0.26
+#- gi-gobject-2.0.27
+#- gi-gdkpixbuf-2.0.28
+#- gi-gtk-3.0.38
+#- gi-pango-1.0.26
+#- gi-harfbuzz-0.0.6
+#- gi-freetype2-2.0.1
+#- gi-gmodule-2.0.2
 build:
   #haddock: true
 flags:

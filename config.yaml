@@ -1,5 +1,5 @@
 database:
-  sock: /tmp/.s.PGSQL.5432
+  sock: /run/postgresql/.s.PGSQL.5432
   user: dylan
   db: dylan
 settings:

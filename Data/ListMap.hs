@@ -31,6 +31,7 @@ import qualified Control.Applicative as A
 import           Control.Arrow (first)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Encoding as JE
+import qualified Data.Aeson.KeyMap as KM
 import           Data.Foldable (fold)
 import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
@@ -172,8 +173,8 @@ instance (J.FromJSONKey k, J.FromJSON k, Key k, J.FromJSON a) => J.FromJSON (Lis
 instance J.ToJSONKey k => J.ToJSON1 (ListMap k) where
   liftToJSON to _ = toj where
     toj (ListMap v m) = J.Object
-      $ maybe id (HM.insert "$" . to) v
-      $ M.foldrWithKey (\k -> HM.insert (tok k) . toj) HM.empty m
+      $ maybe id (KM.insert "$" . to) v
+      $ M.foldrWithKey (\k -> KM.insert (tok k) . toj) KM.empty m
     J.ToJSONKeyText tok _ = J.toJSONKey
   liftToEncoding to _ = toe where
     toe (ListMap v m) = JE.pairs

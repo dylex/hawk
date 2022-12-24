@@ -23,6 +23,7 @@ import           Data.Foldable (fold)
 import           Data.List (sort)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
+import           Data.String (IsString)
 
 import Util
 import JSON
@@ -46,7 +47,7 @@ data FilterType
 instance Semigroup FilterType where
   (<>) = min
 
-filterName :: FilterType -> T.Text
+filterName :: IsString s => FilterType -> s
 filterName FilterBlock        = "block"
 filterName FilterBlockThird   = "block-third"
 filterName FilterBlockCookies = "block-cookies"
