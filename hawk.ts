@@ -36,4 +36,9 @@ namespace _HaWK__ {
     linkSelected = -1;
   }
 
+  /* shims */
+  if (!("HTMLVideoElement" in window)) {
+    (<any>window)["HTMLVideoElement"] = (<any>window)["HTMLDivElement"];
+  }
+
 }
