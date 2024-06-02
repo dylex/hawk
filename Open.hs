@@ -121,8 +121,8 @@ hawkOpen hawkGlobal@Global{..} parent = do
 
   hawkStatusBox <- G.new Gtk.Box
     [ #orientation G.:= Gtk.OrientationHorizontal ]
-  #setSizeRequest hawkStatusBox (-1) 24
-  hawkStatusStyle <- setStyle hawkStatusBox "*{}"
+  #setSizeRequest hawkStatusBox (-1) 26
+  hawkStatusStyle <- setStyle hawkStatusBox "*{font-size:26pt;}"
   #packEnd hawkTopBox hawkStatusBox False False 0
 
   -- status left

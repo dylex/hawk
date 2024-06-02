@@ -243,8 +243,8 @@ commandBinds = Map.fromList $
   , (([], ']'), linkSelect "next" "\\bnext|^>")
   , (([], '='), zoom (const 1))
   , (([mod1], '='), toggleSettingBool #zoomTextOnly)
-  , (([], '+'), zoom (0.1 +))
-  , (([], '_'), zoom (subtract 0.1))
+  , (([], '+'), zoom (0.25 +))
+  , (([], '_'), zoom (subtract 0.25))
 
   , (([], 'p'), pasteSelection hawkGoto)
   , (([mod1], 'p'), toggleKeepHistory)

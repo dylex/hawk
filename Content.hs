@@ -22,7 +22,7 @@ addContentFilter i j callback = do
   fs <- asksGlobal hawkFilterStore
   b <- GLib.bytesNew $ Just $ BSL.toStrict $ J.encode j
   hawk <- ask
-  #save fs i b noCancellable $ Just $ \_ r _ -> do
+  #save fs i b noCancellable $ Just $ \_ r -> do
     f <- #saveFinish fs r
     #addFilter cm f
     runHawkM hawk callback

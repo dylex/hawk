@@ -1,8 +1,8 @@
-resolver: lts-19.33
+resolver: lts-20.26
 packages:
 - .
 extra-deps:
-- haskell-gi-0.26.4
+- haskell-gi-0.26.8
 #- haskell-gi-base-0.26.0
 - gi-webkit2-4.0.30
 - gi-soup-2.4.28
