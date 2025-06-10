@@ -6,6 +6,7 @@
 
 module Bind
   ( runBind
+  , runMouse
   ) where
 
 import           Control.Arrow (first, second)
@@ -39,6 +40,8 @@ import UI
 import Event
 import Filter
 import Content
+
+import Debug.Trace
 
 settingStatus :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, Show a) => GA.AttrLabelProxy attr -> HawkM ()
 settingStatus attr = do
@@ -305,3 +308,13 @@ runBind ev = do
       | null ks && kv == k ->
         run $ writeRef hawkBindings =<< r
       | otherwise -> return False
+
+runMouse :: Gdk.EventButton -> HawkM Bool
+runMouse ev = do
+  evt <- G.get ev #type
+  bn <- G.get ev #button
+  traceShowM (evt, bn)
+  case (evt, bn) of
+    (Gdk.EventTypeButtonPress, 8) -> True <$ backForward (-1)
+    (Gdk.EventTypeButtonPress, 9) -> True <$ backForward   1
+    _ -> return False

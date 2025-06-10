@@ -196,13 +196,16 @@ hawkOpen hawkGlobal@Global{..} parent = do
 
   _ <- G.on hawkWebView (G.PropertyNotify #uri) $ \_ -> do
     uri <- #getUri hawkWebView
+    -- print $ "changed: " <> show uri
     run $ uriChanged uri
     #setText hawkStatusURI $ fold uri
   _ <- G.on hawkWebView (G.PropertyNotify #title) $ \_ ->
     #setTitle hawkWindow . ("hawk " <>) . fold =<< #getTitle hawkWebView
   _ <- G.on hawkWebView #mouseTargetChanged $ (.) run . targetChanged
 
-  _ <- G.on hawkWebView #decidePolicy $ \d -> \case
+  _ <- G.on hawkWebView #decidePolicy $ \d t -> do
+   -- print $ "decide " <> show t
+   case t of
     {-
     WK.PolicyDecisionTypeResponse -> do
       rd <- G.unsafeCastTo WK.ResponsePolicyDecision d
@@ -245,8 +248,8 @@ hawkOpen hawkGlobal@Global{..} parent = do
 
   #registerUriScheme hawkWebContext "hawk" $ run . hawkURIScheme
   _ <- G.on hawkWindow #keyPressEvent $ run . runBind
-  -- TODO: add signal detail haskell-gi #158
-  _ <- G.on hawkUserContentManager #scriptMessageReceived $ run . scriptMessageHandler
+  _ <- G.on hawkWindow #buttonPressEvent $ run . runMouse
+  _ <- G.on hawkUserContentManager (#scriptMessageReceived G.::: "hawk") $ run . scriptMessageHandler
   True <- #registerScriptMessageHandler hawkUserContentManager "hawk"
 
   {-
