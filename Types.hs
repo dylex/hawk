@@ -11,6 +11,7 @@ module Types
   , askWebView
   , askSettings
   , askWebContext
+  , askNetworkSession
   , askUserContentManager
   , askWebsiteDataManager 
   , askCookieManager
@@ -23,7 +24,6 @@ module Types
   , noCancellable
   ) where
 
-import           Control.Concurrent.MVar (MVar)
 import           Control.Monad (join)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ReaderT, runReaderT, asks)
@@ -37,8 +37,9 @@ import           Database.PostgreSQL.Typed (PGConnection)
 import qualified Deque.Strict as D
 
 import qualified GI.Gio as Gio
+import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
-import qualified GI.WebKit2 as WK
+import qualified GI.WebKit as WK
 
 import Domain
 import Config
@@ -60,14 +61,15 @@ type PromptHistory = IORef (D.Deque T.Text)
 
 data Global = Global
   { hawkConfig :: !Config
-  , hawkActive :: !(MVar Int)
   , globalUserAgent :: !T.Text
   , globalStyleSheet :: !WK.UserStyleSheet
   , globalScript :: !WK.UserScript
   
   , hawkDatabase :: !(Maybe PGConnection)
-  , hawkClipboard :: !Gtk.Clipboard
+  , hawkApplication :: !Gtk.Application
+  , hawkClipboard :: !Gdk.Clipboard
   , hawkFilterStore :: !WK.UserContentFilterStore
+  , hawkNetworkSession :: !WK.NetworkSession
   , hawkWebContext :: !WK.WebContext
   , hawkStyleSheets :: !(V.Vector WK.UserStyleSheet)
   , hawkScript :: !(Maybe WK.UserScript)
@@ -109,14 +111,17 @@ askSettings = #getSettings =<< askWebView
 askWebContext :: HawkM WK.WebContext
 askWebContext = asksGlobal hawkWebContext
 
+askNetworkSession :: HawkM WK.NetworkSession
+askNetworkSession = #getNetworkSession =<< askWebView
+
 askUserContentManager :: HawkM WK.UserContentManager
 askUserContentManager = #getUserContentManager =<< askWebView
 
 askWebsiteDataManager :: HawkM WK.WebsiteDataManager
-askWebsiteDataManager = #getWebsiteDataManager =<< askWebView
+askWebsiteDataManager = #getWebsiteDataManager =<< askNetworkSession
 
 askCookieManager :: HawkM WK.CookieManager
-askCookieManager = #getCookieManager =<< askWebsiteDataManager
+askCookieManager = #getCookieManager =<< askNetworkSession
 
 askFindController :: HawkM WK.FindController
 askFindController = #getFindController =<< askWebView

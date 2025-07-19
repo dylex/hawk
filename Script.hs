@@ -11,9 +11,8 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
 
-import qualified GI.Gio as Gio
 import qualified GI.Gdk as Gdk
-import qualified GI.WebKit2 as WK
+import qualified GI.JavaScriptCore as JSC
 
 import Types
 import UI
@@ -25,7 +24,7 @@ scriptModule = "_HaWK__"
 runScript :: T.Text -> HawkM ()
 runScript s = do
   wv <- askWebView
-  #runJavascript wv s (Nothing :: Maybe Gio.Cancellable) Nothing
+  #evaluateJavascript wv s (fromIntegral $ T.length s) Nothing Nothing noCancellable Nothing
 
 builderText :: TLB.Builder -> T.Text
 builderText = TL.toStrict . TLB.toLazyText
@@ -41,7 +40,7 @@ callScript fun args = runScriptBuilder $
 linkSelect :: T.Text -> T.Text -> HawkM ()
 linkSelect t r = callScript "linkSelect" [JSON (J.String t), JSRegExp r True]
 
-scriptMessageHandler :: WK.JavascriptResult -> HawkM ()
+scriptMessageHandler :: JSC.Value -> HawkM ()
 scriptMessageHandler _arg =
   passThruBind Gdk.KEY_Escape
 

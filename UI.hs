@@ -16,34 +16,36 @@ module UI
 
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Reader (ask, asks)
-import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import           Data.Word (Word32)
 
+import qualified Data.GI.Base.GValue as GValue
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 
 import Types
 import Expand
 
-setStyle :: (Gtk.IsWidget w, MonadIO m) => w -> BS.ByteString -> m Gtk.CssProvider
+setStyle :: (Gtk.IsWidget w, MonadIO m) => w -> T.Text -> m Gtk.CssProvider
 setStyle obj rules = do
   css <- Gtk.cssProviderNew
   style <- Gtk.widgetGetStyleContext obj
   #addProvider style css (fromIntegral Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-  #loadFromData css rules
+  #loadFromString css rules
   return css
 
 pasteSelection :: (T.Text -> HawkM ()) -> HawkM ()
 pasteSelection f = do
   hawk <- ask
-  #requestText (hawkClipboard $ hawkGlobal hawk) $ \_ -> maybe (return ()) $ runHawkM hawk . f
+  let cb = hawkClipboard $ hawkGlobal hawk
+  #readTextAsync cb noCancellable $ Just $ \_ res ->
+    #readTextFinish cb res >>= maybe (return ()) (runHawkM hawk . f)
 
 copySelection :: T.Text -> HawkM ()
 copySelection t = do
   sel <- asksGlobal hawkClipboard
-  Gtk.clipboardSetText sel t (fromIntegral $ T.length t)
+  Gdk.clipboardSet sel =<< GValue.toGValue (Just t)
 
 hawkClose :: HawkM ()
 hawkClose = do
@@ -93,9 +95,9 @@ commandModeBind = do
 passThruBind :: Word32 -> HawkM ()
 passThruBind k = do
   css <- asks hawkStatusStyle
-  #loadFromData css "*{background-color:#000;}"
+  #loadFromString css "*{background-color:#000;}"
   modifyRef_ hawkBindings $ \case
     bind@PassThru{} -> bind{ passThruKey = k }
     bind -> PassThru k $ do
-      #loadFromData css "*{}"
+      #loadFromString css "*{}"
       return bind

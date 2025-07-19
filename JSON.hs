@@ -7,8 +7,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module JSON
-  ( Pairs
-  , JSONRep(..)
+  ( JSONRep(..)
   , defaultParse
   , parseJSON
   , ObjectParser
@@ -28,16 +27,14 @@ import           Control.Monad.State (StateT(..), execStateT, get, put, modify, 
 import           Data.Aeson (parseJSON)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Encoding as J (pair, list)
-import qualified Data.Aeson.Internal as J (JSONPathElement(Key))
 import qualified Data.Aeson.KeyMap as KM
-import qualified Data.Aeson.Types as J (Parser, parseEither, emptyObject, Pair)
+import qualified Data.Aeson.Types as J (Parser, parseEither, emptyObject, Pair, JSONPathElement(..))
 
-instance J.KeyValue [J.Pair] where
+instance J.KeyValue J.Value [J.Pair] where
   k .= v = [k J..= v]
+  explicitToField f k v = [k J..= f v]
 
-type Pairs s = (J.KeyValue s, Monoid s)
-
-class (J.KeyValue p, Monoid p) => JSONRep p r | r -> p, p -> r where
+class (J.KeyValue r p, Monoid p) => JSONRep p r | r -> p, p -> r where
   repJSON :: J.ToJSON a => a -> r
   repPair :: J.Key -> r -> p
   repObject :: p -> r

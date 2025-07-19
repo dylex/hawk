@@ -1,11 +1,14 @@
-resolver: lts-20.26
+resolver: lts-23.24
 packages:
 - .
 extra-deps:
-- haskell-gi-0.26.8
+- gi-webkit-6.0.5
+- gi-javascriptcore6-6.0.5
+- gi-soup3-3.0.5
+#- haskell-gi-0.26.8
 #- haskell-gi-base-0.26.0
-- gi-webkit2-4.0.30
-- gi-soup-2.4.28
+#- gi-webkit2-6.0.4
+#- gi-soup-2.4.28
 #- gi-javascriptcore-4.0.24
 #- gi-atk-2.0.24
 #- gi-cairo-1.0.26

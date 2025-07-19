@@ -47,7 +47,7 @@ import           System.FilePath ((</>), (<.>), dropExtension, takeExtension, ta
 import           System.IO.Error (mkIOError, doesNotExistErrorType)
 import qualified System.IO.Unsafe as Unsafe
 
-import qualified GI.WebKit2 as WK
+import qualified GI.WebKit as WK
 
 import JSON
 import qualified Data.ListMap as LM
@@ -88,7 +88,7 @@ data Config = Config
   , configProxy :: !(Maybe T.Text)
   , configProxyIgnore :: ![T.Text]
   , configSpellChecking :: !Bool
-  , configProcessModel :: !WK.ProcessModel
+  -- , configProcessModel :: !WK.ProcessModel
 
   -- WebView
   , configCharset :: !(Maybe T.Text)
@@ -138,7 +138,7 @@ instance Default Config where
     , configProxy = Nothing
     , configProxyIgnore = []
     , configSpellChecking = True
-    , configProcessModel = WK.ProcessModelMultipleSecondaryProcesses
+    -- , configProcessModel = WK.ProcessModelMultipleSecondaryProcesses
     , configCharset = Nothing
     , configEditable = False
     , configZoomLevel = 1
@@ -242,6 +242,7 @@ instance J.FromJSON WK.CacheModel where
   parseJSON (J.String "some")             = return WK.CacheModelDocumentBrowser
   parseJSON x = J.typeMismatch "CacheModel (none,some,all)" x
 
+{-
 instance J.FromJSON WK.ProcessModel where
   parseJSON J.Null                = return WK.ProcessModelSharedSecondaryProcess
   parseJSON (J.Bool False)        = return WK.ProcessModelSharedSecondaryProcess
@@ -249,6 +250,7 @@ instance J.FromJSON WK.ProcessModel where
   parseJSON (J.String "shared")   = return WK.ProcessModelSharedSecondaryProcess
   parseJSON (J.String "multiple") = return WK.ProcessModelMultipleSecondaryProcesses
   parseJSON x = J.typeMismatch "ProcessModel (shared,multiple)" x
+  -}
 
 newtype Some m a = Some{ getSome :: m a }
 
@@ -290,7 +292,7 @@ parseConfig initconf conffile = parseObject initconf "config" $ do
   configProxy'              .<- "proxy"
   configProxyIgnore'        .<- "proxy-ignore"
   configSpellChecking'      .<- "spell-checking"
-  configProcessModel'       .<- "process-model"
+  -- configProcessModel'       .<- "process-model"
   configCharset'            .<- "charset"
   configEditable'           .<- "editable"
   configZoomLevel'          .<- "zoom-level"

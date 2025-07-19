@@ -21,7 +21,7 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as HA
 import qualified System.IO.Unsafe as Unsafe
 
-import qualified GI.WebKit2 as WK
+import qualified GI.WebKit as WK
 import qualified GI.Gio as Gio
 
 import Types

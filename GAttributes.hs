@@ -1,10 +1,11 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 
 module GAttributes 
@@ -13,9 +14,8 @@ module GAttributes
 
 import qualified Data.GI.Base.Attributes as GA
 -- import qualified Data.GI.Base.Overloading as GO
--- import           Data.Kind
 import           Data.Proxy (Proxy(..))
-import           GHC.TypeLits (KnownSymbol, symbolVal)
+import           GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
 
 data GAttributeInfo = GAttributeInfo
   { gAttributeAllowedOps :: [GA.AttrOpTag]
@@ -24,7 +24,7 @@ data GAttributeInfo = GAttributeInfo
 class Demote a b where
   demote :: proxy a -> b
 
-instance KnownSymbol s => Demote s String where
+instance KnownSymbol s => Demote (s :: Symbol) String where
   demote = symbolVal
 
 instance Demote '[] [a] where

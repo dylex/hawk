@@ -33,7 +33,7 @@ import           GHC.TypeLits (KnownSymbol)
 import           System.Directory (doesPathExist)
 import           System.FilePath ((</>), (<.>))
 
-import qualified GI.WebKit2 as WK
+import qualified GI.WebKit as WK
 
 import Types
 import Config
@@ -55,9 +55,9 @@ applySiteConfig :: SiteConfig -> HawkM ()
 applySiteConfig conf = do
   settings <- askSettings
   liftIO $ mapM_ (uncurry $ setObjectProperty settings) $ HM.toList $ configSettings conf
-  dm <- askWebsiteDataManager
-  mapM_ (#setItpEnabled dm) $ configITP conf
-  cm <- #getCookieManager dm
+  -- dm <- askWebsiteDataManager
+  -- mapM_ (#setItpEnabled dm) $ configITP conf
+  cm <- askCookieManager
   mapM_ (#setAcceptPolicy cm) $ configCookieAcceptPolicy conf
 
 reapplySiteConfig :: HawkM ()

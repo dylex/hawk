@@ -11,6 +11,7 @@ module Prompt
   ) where
 
 import           Control.Arrow (first, second)
+import           Control.Monad (void)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (ask)
 import qualified Data.GI.Base as G
@@ -67,11 +68,11 @@ prompt Prompt{..} run = do
     , #text G.:= promptInit
     ]
   _ <- setStyle ent "*{min-height:24px;border:none;}" -- min-width:80%
-  #packStart (hawkStatusBox hawk) ent True True 0
+  #insertChildAfter (hawkStatusBox hawk) ent (hawkStatusLeft hawk)
 
   modifyRef_ hawkBindings $ \bind ->
     PassThru Gdk.KEY_Escape $ do
-      #destroy ent
+      #remove (hawkStatusBox hawk) ent
       setStatusLeft ""
       return bind
   _ <- G.on ent #activate $ runHawkM hawk $ do
@@ -98,18 +99,19 @@ prompt Prompt{..} run = do
       hist f = do
         set =<< atomicModifyIORef' histr . f =<< #getText ent
         return True
-  _ <- G.on ent #keyPressEvent $ \ev -> do
-    kv <- G.get ev #keyval
+  ec <- G.new Gtk.EventControllerKey []
+  _ <- G.on ec #keyPressed $ \kv _ state ->
     case kv of
-      Gdk.KEY_Tab -> comp . elem Gdk.ModifierTypeShiftMask =<< G.get ev #state
+      Gdk.KEY_Tab -> comp $ elem Gdk.ModifierTypeShiftMask state
       Gdk.KEY_ISO_Left_Tab -> comp True
       Gdk.KEY_Up   -> hist $ \t d -> maybe (d, t) (first (D.snoc t) . swap) $ D.uncons d
       Gdk.KEY_Down -> hist $ \t d -> maybe (d, t) (first (D.cons t) . swap) $ D.unsnoc d
       Gdk.KEY_Shift_L -> return False -- TODO: ignore other modifiers
       _ -> False <$ writeIORef ctr Nothing
+  #addController ent ec
 
   #show ent
-  #grabFocus ent
+  void $ #grabFocus ent
 
 completeURI :: T.Text -> Int -> HawkM (Maybe T.Text)
 completeURI t i

@@ -8,11 +8,8 @@ module Open
   , globalClose
   ) where
 
-import           Control.Concurrent.MVar (newMVar, modifyMVar, modifyMVar_)
-import           Control.Monad (join, forM, forM_, when, void)
+import           Control.Monad (forM, forM_, when, void)
 import qualified Data.Aeson as J
-import qualified Data.ByteString.Builder as BSB
-import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
 import           Data.Foldable (fold)
 import qualified Data.GI.Base as G
@@ -24,6 +21,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TLIO
 import qualified Data.Text.IO as TIO
 import           Database.PostgreSQL.Typed (pgConnect, pgDisconnect)
+import           Numeric (showHex)
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeExtension)
 import qualified System.Info as SI
@@ -31,7 +29,7 @@ import qualified System.Info as SI
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.Pango as Pango
-import qualified GI.WebKit2 as WK
+import qualified GI.WebKit as WK
 
 import Paths_hawk (getDataFileName)
 import Types
@@ -48,16 +46,18 @@ import Domain
 import Scheme
 import Event
 
-toHex :: Double -> BSB.Builder
+toHex :: Double -> String
 toHex x
-  | x <= 0 = "00"
+  | n <= 0 = "00"
   | x >= 1 = "ff"
-  | otherwise = BSB.word8HexFixed $ floor (255*x)
+  | n < 16 = '0':s
+  | otherwise = s
   where
+  n = floor (255*x)
+  s = showHex (n :: Int) ""
 
-globalOpen :: Config -> IO Global
-globalOpen hawkConfig@Config{..} = do
-  hawkActive <- newMVar 0
+globalOpen :: Gtk.Application -> Config -> IO Global
+globalOpen hawkApplication hawkConfig@Config{..} = do
   vmaj <- WK.getMajorVersion
   vmin <- WK.getMinorVersion
   let globalUserAgent = T.pack $ "hawk (X11; " <> SI.os <> " " <> SI.arch <> ") WebKit/" <> show vmaj <> "." <> show vmin
@@ -78,14 +78,12 @@ globalOpen hawkConfig@Config{..} = do
 
   hawkFilterStore <- WK.userContentFilterStoreNew $ T.pack configFilterDirectory 
 
-  hawkWebContext <- WK.webContextNewWithWebsiteDataManager =<<
-    G.new WK.WebsiteDataManager
-      (                 (:) (#isEphemeral        G.:= isNothing configDataDirectory)
-      $ maybe id (\d -> (:) (#baseDataDirectory  G.:= T.pack d)) configDataDirectory
-      $ maybe id (\d -> (:) (#baseCacheDirectory G.:= T.pack d)) configCacheDirectory
-      [])
+  hawkWebContext <- WK.webContextGetDefault
+  hawkNetworkSession <- if isNothing configDataDirectory
+    then WK.networkSessionNewEphemeral
+    else WK.networkSessionNew (T.pack <$> configDataDirectory) (T.pack <$> configCacheDirectory)
 
-  hawkCookieManager <- #getCookieManager hawkWebContext
+  hawkCookieManager <- #getCookieManager hawkNetworkSession
   forM_ configCookieFile $ \f ->
     #setPersistentStorage hawkCookieManager (T.pack f) (case takeExtension f of
       ".txt" -> WK.CookiePersistentStorageText
@@ -94,12 +92,13 @@ globalOpen hawkConfig@Config{..} = do
 
   #setCacheModel hawkWebContext configCacheModel
   forM_ configProxy $ \p ->
-    #setNetworkProxySettings hawkWebContext WK.NetworkProxyModeCustom . Just
+    #setProxySettings hawkNetworkSession WK.NetworkProxyModeCustom . Just
       =<< WK.networkProxySettingsNew (Just p) (Just configProxyIgnore)
   #setSpellCheckingEnabled hawkWebContext configSpellChecking
-  #setProcessModel hawkWebContext configProcessModel
+  -- #setProcessModel hawkWebContext configProcessModel
 
-  hawkClipboard <- Gtk.clipboardGet {- Gdk.SELECTION_PRIMARY: wrapPtr Gdk.Atom (intPtrToPtr 1) -} =<< Gdk.atomInternStaticString "PRIMARY"
+  display <- maybe (fail "no display") return =<< Gdk.displayGetDefault
+  hawkClipboard <- Gdk.displayGetPrimaryClipboard display
 
   return Global{..}
 
@@ -112,43 +111,43 @@ hawkOpen hawkGlobal@Global{..} parent = do
   let Config{..} = hawkConfig
 
   hawkWindow <- G.new Gtk.Window
-    [ #type G.:= Gtk.WindowTypeToplevel
-    ]
+    [ #application G.:= hawkApplication ]
 
   hawkTopBox <- G.new Gtk.Box
     [ #orientation G.:= Gtk.OrientationVertical ]
-  #add hawkWindow hawkTopBox
+  #setChild hawkWindow (Just hawkTopBox)
 
   hawkStatusBox <- G.new Gtk.Box
     [ #orientation G.:= Gtk.OrientationHorizontal ]
   #setSizeRequest hawkStatusBox (-1) 26
   hawkStatusStyle <- setStyle hawkStatusBox "*{font-size:26pt;}"
-  #packEnd hawkTopBox hawkStatusBox False False 0
+  #append hawkTopBox hawkStatusBox
 
   -- status left
   hawkStatusCount <- G.new Gtk.Label []
   _ <- setStyle hawkStatusCount "*{background-color:#8cc;color:#000;}"
-  #packStart hawkStatusBox hawkStatusCount False False 0
+  #append hawkStatusBox hawkStatusCount
 
   hawkStatusLeft <- G.new Gtk.Label
     [ #selectable G.:= True
     , #ellipsize G.:= Pango.EllipsizeModeEnd
     ]
-  #packStart hawkStatusBox hawkStatusLeft False False 0
+  #append hawkStatusBox hawkStatusLeft
 
   -- status right
-  hawkStatusLoad <- G.new Gtk.Label []
-  _ <- setStyle hawkStatusLoad "*{color:#fff;}"
-  hawkStatusLoadStyle <- setStyle hawkStatusLoad "*{}"
-  #packEnd hawkStatusBox hawkStatusLoad False False 0
-
   hawkStatusURI <- G.new Gtk.Label
     [ #halign G.:= Gtk.AlignEnd
+    , #hexpand G.:= True
     , #selectable G.:= True
     , #ellipsize G.:= Pango.EllipsizeModeEnd
     ]
   _ <- setStyle hawkStatusURI "*{color:#08f;}"
-  #packEnd hawkStatusBox hawkStatusURI True True 0
+  #append hawkStatusBox hawkStatusURI
+
+  hawkStatusLoad <- G.new Gtk.Label []
+  _ <- setStyle hawkStatusLoad "*{color:#fff;}"
+  hawkStatusLoadStyle <- setStyle hawkStatusLoad "*{}"
+  #append hawkStatusBox hawkStatusLoad
 
   hawkSettings <- G.new WK.Settings
     [ #userAgent G.:= globalUserAgent
@@ -159,13 +158,15 @@ hawkOpen hawkGlobal@Global{..} parent = do
 
   hawkWebView <- G.new WK.WebView $
     [ #webContext G.:= hawkWebContext
+    , #networkSession G.:= hawkNetworkSession
     , #settings G.:= hawkSettings
     , #userContentManager G.:= hawkUserContentManager
     , #editable G.:= configEditable
     , #zoomLevel G.:= configZoomLevel
+    , #vexpand G.:= True
     ] ++ maybe [] (return . (#relatedView G.:=) . hawkWebView) parent
   #setCustomCharset hawkWebView configCharset
-  #packStart hawkTopBox hawkWebView True True 0
+  #prepend hawkTopBox hawkWebView
 
   hawkURIDomain <- newIORef "."
   hawkBindings <- newIORef def
@@ -192,7 +193,7 @@ hawkOpen hawkGlobal@Global{..} parent = do
 
   _ <- G.on hawkWebView (G.PropertyNotify #estimatedLoadProgress) $ \_ -> do
     p <- #getEstimatedLoadProgress hawkWebView
-    #loadFromData hawkStatusLoadStyle $ BSL.toStrict $ BSB.toLazyByteString $ "*{background-color:#" <> toHex (1-p) <> toHex p <> "00;}"
+    #loadFromString hawkStatusLoadStyle $ "*{background-color:#" <> T.pack (toHex (1-p) <> toHex p) <> "00;}"
 
   _ <- G.on hawkWebView (G.PropertyNotify #uri) $ \_ -> do
     uri <- #getUri hawkWebView
@@ -200,7 +201,7 @@ hawkOpen hawkGlobal@Global{..} parent = do
     run $ uriChanged uri
     #setText hawkStatusURI $ fold uri
   _ <- G.on hawkWebView (G.PropertyNotify #title) $ \_ ->
-    #setTitle hawkWindow . ("hawk " <>) . fold =<< #getTitle hawkWebView
+    #setTitle hawkWindow . Just . ("hawk " <>) . fold =<< #getTitle hawkWebView
   _ <- G.on hawkWebView #mouseTargetChanged $ (.) run . targetChanged
 
   _ <- G.on hawkWebView #decidePolicy $ \d t -> do
@@ -217,28 +218,30 @@ hawkOpen hawkGlobal@Global{..} parent = do
       return False
     -}
     WK.PolicyDecisionTypeNewWindowAction -> do
+      #ignore d
+      {-
       nd <- G.unsafeCastTo WK.NavigationPolicyDecision d
       req <- G.get nd #request
-      #ignore d
       print =<< G.get req #uri
       #loadRequest hawkWebView req
+      -}
       return True
     _ -> return False
 
   if isJust (PM.lookup [] configTLSAccept)
-    then #setTlsErrorsPolicy hawkWebContext WK.TLSErrorsPolicyIgnore
+    then #setTlsErrorsPolicy hawkNetworkSession WK.TLSErrorsPolicyIgnore
     else void $ G.on hawkWebView #loadFailedWithTlsErrors $ \u c f -> case uriDomain u of
       Just d | isJust (PM.lookupPrefix (domainComponents d) configTLSAccept) -> do
         putStrLn $ "Accepting TLS Certificate: " ++ show d ++ " " ++ show f
         -- this doesn't work for some reason:
-        #allowTlsCertificateForHost hawkWebContext c $ joinDomain d
+        #allowTlsCertificateForHost hawkNetworkSession c $ joinDomain d
         return False
       _ -> do
         putStrLn $ "Rejecting TLS Certificate: " ++ show u ++ " " ++ show f
         return False
 
   mapM_ (createDirectoryIfMissing False) configDownloadDir
-  _ <- G.on hawkWebContext #downloadStarted $ run . startDownload
+  _ <- G.on hawkNetworkSession #downloadStarted $ run . startDownload
 
   hawkFindController <- #getFindController hawkWebView
   _ <- G.on hawkFindController #foundText $ \n ->
@@ -247,10 +250,16 @@ hawkOpen hawkGlobal@Global{..} parent = do
     #setText hawkStatusLeft $ T.pack $ "no matches"
 
   #registerUriScheme hawkWebContext "hawk" $ run . hawkURIScheme
-  _ <- G.on hawkWindow #keyPressEvent $ run . runBind
-  _ <- G.on hawkWindow #buttonPressEvent $ run . runMouse
+
+  ec <- G.new Gtk.EventControllerKey
+    [ #propagationLimit G.:= Gtk.PropagationLimitNone
+    , #propagationPhase G.:= Gtk.PropagationPhaseCapture
+    , G.On #keyPressed $ \kv kc state -> run $ runBind kv kc state
+    ]
+  #addController hawkWindow ec
+  -- _ <- G.on hawkWindow #buttonPressEvent $ run . runMouse
   _ <- G.on hawkUserContentManager (#scriptMessageReceived G.::: "hawk") $ run . scriptMessageHandler
-  True <- #registerScriptMessageHandler hawkUserContentManager "hawk"
+  True <- #registerScriptMessageHandler hawkUserContentManager "hawk" Nothing
 
   {-
   _ <- G.on hawkWindow #scrollEvent $ \e -> do
@@ -265,11 +274,6 @@ hawkOpen hawkGlobal@Global{..} parent = do
     _ <- G.on wv #readyToShow $
       hawkShow child
     Gtk.toWidget =<< G.withManagedPtr wv (G.wrapObject WK.WebView)
-
-  modifyMVar_ hawkActive (return . succ)
-  _ <- G.after hawkWindow #destroy $ do
-    n <- modifyMVar hawkActive (return . join (,) . pred)
-    when (n <= 0) Gtk.mainQuit
 
   run $ do
     when (configContentFilter /= J.Null) $
@@ -288,11 +292,13 @@ hawkShow :: Hawk -> IO ()
 hawkShow Hawk{..} = do
   wp <- #getWindowProperties hawkWebView
   geom <- #getGeometry wp
+  {-
   x <- G.get geom #x
   y <- G.get geom #y
   #move hawkWindow x y
+  -}
   w <- G.get geom #width
   h <- G.get geom #height
-  #resize hawkWindow (if w == 0 then 640 else w) (if w == 0 then 480 else h)
-  #showAll hawkWindow
+  #setDefaultSize hawkWindow (if w == 0 then 640 else w) (if h == 0 then 480 else h)
+  #present hawkWindow
 

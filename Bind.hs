@@ -6,12 +6,12 @@
 
 module Bind
   ( runBind
-  , runMouse
+  -- , runMouse
   ) where
 
 import           Control.Arrow (first, second)
 import qualified Control.Lens as Lens
-import           Control.Monad (unless, void)
+import           Control.Monad (void)
 import           Data.Bits ((.|.))
 import           Data.Char (isUpper)
 import           Data.Default (def)
@@ -28,7 +28,7 @@ import           GHC.TypeLits (KnownSymbol, symbolVal)
 
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
-import qualified GI.WebKit2 as WK
+import qualified GI.WebKit as WK
 
 import Types
 import Config
@@ -40,8 +40,6 @@ import UI
 import Event
 import Filter
 import Content
-
-import Debug.Trace
 
 settingStatus :: (KnownSymbol attr, GA.AttrGetC info WK.Settings attr a, Show a) => GA.AttrLabelProxy attr -> HawkM ()
 settingStatus attr = do
@@ -171,9 +169,9 @@ resetSiteFilter = resetFilters $
 toggleTLSAccept :: HawkM ()
 toggleTLSAccept = do
   tog <- toggle $ V.fromList [WK.TLSErrorsPolicyFail, WK.TLSErrorsPolicyIgnore]
-  wc <- askWebContext
-  p <- tog <$> #getTlsErrorsPolicy wc
-  #setTlsErrorsPolicy wc p
+  ns <- askNetworkSession
+  p <- tog <$> #getTlsErrorsPolicy ns
+  #setTlsErrorsPolicy ns p
   setStatusLeft $ "tls-accept " <> T.pack (show p)
 
 backForward :: Int32 -> HawkM ()
@@ -288,16 +286,12 @@ commandBinds = Map.fromList $
   , (([mod1], 'm'), toggleSiteFilter ResourceMedia [ResourcePopup])
   , (([], 'z'), #stopLoading =<< askWebView)
   ] where
-  mod1 = Gdk.ModifierTypeMod1Mask
+  mod1 = Gdk.ModifierTypeAltMask
   ctrl = Gdk.ModifierTypeControlMask
 
-runBind :: Gdk.EventKey -> HawkM Bool
-runBind ev = do
+runBind :: Word32 -> Word32 -> [Gdk.ModifierType] -> HawkM Bool
+runBind kv _ ks = do
   bind <- readRef hawkBindings
-  evt <- G.get ev #type
-  unless (evt == Gdk.EventTypeKeyPress) $ fail $ show evt
-  ks <- G.get ev #state
-  kv <- G.get ev #keyval
   let run f = True <$ f
   case bind of
     Command{} ->
@@ -309,7 +303,8 @@ runBind ev = do
         run $ writeRef hawkBindings =<< r
       | otherwise -> return False
 
-runMouse :: Gdk.EventButton -> HawkM Bool
+{-
+runMouse :: Gdk.ButtonEvent -> HawkM Bool
 runMouse ev = do
   evt <- G.get ev #type
   bn <- G.get ev #button
@@ -318,3 +313,4 @@ runMouse ev = do
     (Gdk.EventTypeButtonPress, 8) -> True <$ backForward (-1)
     (Gdk.EventTypeButtonPress, 9) -> True <$ backForward   1
     _ -> return False
+    -}

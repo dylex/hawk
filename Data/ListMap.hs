@@ -162,21 +162,21 @@ groupPrefixes (ListMap v m) = maybe id ((:) . PM.singleton []) v $ monoidList $
 
 -- |Expanded list mapping (not the inverse of ToJSON)
 instance (J.FromJSONKey k, J.FromJSON k, Key k) => J.FromJSON1 (ListMap k) where
-  liftParseJSON par parl j@(J.Object _) =
-    fromList . HM.toList <$> J.liftParseJSON par parl j
-  liftParseJSON par _ j = singleton [] <$> par j
+  liftParseJSON ma par parl j@(J.Object _) =
+    fromList . HM.toList <$> J.liftParseJSON ma par parl j
+  liftParseJSON _ par _ j = singleton [] <$> par j
 
 instance (J.FromJSONKey k, J.FromJSON k, Key k, J.FromJSON a) => J.FromJSON (ListMap k a) where
   parseJSON = J.parseJSON1
 
 -- |Direct nested representation as {$:val,map...}
 instance J.ToJSONKey k => J.ToJSON1 (ListMap k) where
-  liftToJSON to _ = toj where
+  liftToJSON _ to _ = toj where
     toj (ListMap v m) = J.Object
       $ maybe id (KM.insert "$" . to) v
       $ M.foldrWithKey (\k -> KM.insert (tok k) . toj) KM.empty m
     J.ToJSONKeyText tok _ = J.toJSONKey
-  liftToEncoding to _ = toe where
+  liftToEncoding _ to _ = toe where
     toe (ListMap v m) = JE.pairs
       $ foldMap (JE.pair "$" . to) v
       <> M.foldrWithKey (\k -> mappend . JE.pair' (tok k) . toe) mempty m
