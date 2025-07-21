@@ -68,7 +68,7 @@ prompt Prompt{..} run = do
     , #text G.:= promptInit
     ]
   _ <- setStyle ent "*{min-height:24px;border:none;}" -- min-width:80%
-  #insertChildAfter (hawkStatusBox hawk) ent (hawkStatusLeft hawk)
+  #insertChildAfter (hawkStatusBox hawk) ent (Just (hawkStatusLeft hawk))
 
   modifyRef_ hawkBindings $ \bind ->
     PassThru Gdk.KEY_Escape $ do
