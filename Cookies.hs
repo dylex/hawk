@@ -9,8 +9,6 @@ module Cookies
   , saveCookies
   ) where
 
-#ifdef WEBKIT2_20
-
 import           Control.Monad ((<=<), guard, when, void)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader (asks)
@@ -31,8 +29,9 @@ import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds, posixSecondsToUTCTime)
 import           Database.PostgreSQL.Typed (PGConnection, pgSQL, pgQuery, pgExecute)
 
+import qualified GI.GLib as GLib
 import qualified GI.Soup as Soup
-import qualified GI.WebKit2 as WK
+import qualified GI.WebKit as WK
 
 import Util
 import Types
@@ -129,7 +128,7 @@ saveCookiesDB pg s = mapM_ (saveCookieDB pg) s
 newSoupCookie :: Int64 -> Cookie -> IO Soup.Cookie
 newSoupCookie t Cookie{..} = do
   c <- Soup.cookieNew cookieName cookieValue cookieDomain cookiePath (fromIntegral $ cookieExpires - t)
-  Soup.cookieSetExpires c =<< Soup.dateNewFromTimeT (fromIntegral cookieExpires)
+  mapM_ (Soup.cookieSetExpires c) =<< GLib.dateTimeNewFromUnixUtc cookieExpires
   when cookieSecure   $ Soup.cookieSetSecure   c cookieSecure
   when cookieHttpOnly $ Soup.cookieSetHttpOnly c cookieHttpOnly
   return c
@@ -142,7 +141,7 @@ getSoupCookie s = do
   value    <- Soup.cookieGetValue s
   secure   <- Soup.cookieGetSecure s
   httponly <- Soup.cookieGetHttpOnly s
-  expires  <- (maybe (return 0) Soup.dateToTimeT =<< Soup.cookieGetExpires s)
+  expires  <- (maybe (return 0) GLib.dateTimeToUnix =<< Soup.cookieGetExpires s)
   return Cookie
     { cookieDomain = domain
     , cookiePath = path
@@ -193,15 +192,3 @@ saveCookies uri =
       either saveCookiesDB saveCookiesTxt store c
       #setText stat $ T.pack $ show (length c) ++ " cookies saved")
     =<< cookieStore
-
-#else
-
-import qualified Data.Text as T
-import Types
-
-loadCookies :: HawkM ()
-loadCookies = return ()
-saveCookies :: T.Text -> HawkM ()
-saveCookies _ = return ()
-
-#endif
