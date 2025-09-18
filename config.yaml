@@ -12,7 +12,7 @@ settings:
   enable-offline-web-application-cache: False
   #enable-plugins: False
   enable-write-console-messages-to-stdout: True
-  hardware-acceleration-policy: 1 # never
+  #hardware-acceleration-policy: 1 # never
   media-playback-requires-user-gesture: True
   #zoom-text-only: False
 style-sheet: "plain.css"
